@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from typing import Optional
-
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -19,7 +19,13 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="智麦 农业智能体后端", version="0.2.0", lifespan=lifespan)
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+    allow_credentials=False,
+)
 
 class ChatRequest(BaseModel):
     message: str

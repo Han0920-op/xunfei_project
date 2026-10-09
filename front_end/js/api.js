@@ -64,7 +64,7 @@ async function uploadImage(file) {
  * @param {object} data 对话数据，包含消息、视觉结果、案例ID
  */
 async function sendChat(data) {
-    return request('/agent/chat', 'POST', data);
+    return request('/chat', 'POST', {message:data.message,conversation_id:data.conversation_id??null});
 }
 /**
  * 接口3：获取历史案例列表

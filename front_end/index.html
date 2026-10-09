@@ -61,7 +61,7 @@
                         <!-- 图片预览（默认隐藏） -->
                         <div id="previewBox" style="display: none;">
                             <div class="card-title mt-3">图片预览</div>
-                            < img id="previewImg" class="preview-img" alt="上传预览图">
+                            <img id="previewImg" class="preview-img" alt="上传预览图">
                         </div>
                     </div>
                     <!-- 视觉分析结果卡片（默认隐藏） -->
@@ -120,12 +120,12 @@
                                     <i class="bi bi-chat-square-text" style="font-size: 48px;"></i>
                                     <p class="mt-2">上传图片后，智能体将主动判断信息并与您交互</p >
                                 </div>
-                            </div
+                            </div>
                             <!-- 底部输入框 -->
                             <div class="input-group">
                                 <input type="text" id="chatInput" class="form-control" 
-                                    placeholder="输入回答..." disabled>
-                                <button class="btn btn-primary" id="sendBtn" disabled>
+                                    placeholder="输入消息...">
+                                <button class="btn btn-primary" id="sendBtn">
                                     发送
                                 </button>
                             </div>
@@ -145,6 +145,7 @@
 // ==================== 全局变量 ====================
 let currentVisionResult = null; // 保存视觉分析结果
 let currentCaseId = null;       // 当前诊断案例ID
+let currentConversationId = null; // 当前对话会话ID
 
 // ==================== 1. 图片上传模块 ====================
 const uploadArea = document.getElementById('uploadArea');
@@ -280,9 +281,10 @@ async function sendUserMessage() {
 
     try {
         const res = await sendChat({
-            case_id: currentCaseId,
+            conversation_id: currentConversationId,
             message: text
         });
+        currentConversationId = res.conversation_id;
 
         // 替换加载提示为真实回复
         replaceLastMessage('agent', res.reply);
