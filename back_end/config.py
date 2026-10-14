@@ -9,7 +9,9 @@ SPARK_BASE_URL = os.getenv("SPARK_BASE_URL", "https://spark-api-open.xf-yun.com/
 SPARK_MODEL = os.getenv("SPARK_MODEL", "generalv3.5")
 SPARK_TEMPERATURE = float(os.getenv("SPARK_TEMPERATURE", "0.7"))
 SPARK_MAX_TOKENS = int(os.getenv("SPARK_MAX_TOKENS", "2048"))
-
+XFYUN_APP_ID = os.getenv("XFYUN_APP_ID", "")
+XFYUN_API_KEY = os.getenv("XFYUN_API_KEY", "")
+XFYUN_API_SECRET = os.getenv("XFYUN_API_SECRET", "")
 SYSTEM_PROMPT = os.getenv(
     "SYSTEM_PROMPT",
     "你是「智麦」，一个面向小麦生长管理的农业辅助智能体。请基于用户的问题给出专业、清晰、稳妥的回答；"

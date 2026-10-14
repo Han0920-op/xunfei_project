@@ -206,6 +206,15 @@ body {
 }
 
 
+/* 视觉模型返回的自然语言描述  */
+.vision-result-text {
+    white-space: pre-wrap;
+    line-height: 1.7;
+    color: #333;
+    font-size: 14px;
+}
+
+
 /*  诊断结果保持高亮卡片  */
 .diagnosis-result {
     background: #fffbe6;

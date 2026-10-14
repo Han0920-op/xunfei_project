@@ -70,40 +70,7 @@
                             <i class="bi bi-eye"></i>
                             视觉模型分析结果
                         </div>
-                        <table class="table table-bordered table-sm">
-                            <tr>
-                                <td width="100">作物类型</td>
-                                <td id="res_crop">小麦</td>
-                            </tr>
-                            <tr>
-                                <td>叶片颜色</td>
-                                <td id="res_color">-</td>
-                            </tr>
-                            <tr>
-                                <td>异常程度</td>
-                                <td>
-                                    <div class="progress" style="height: 10px;">
-                                        <div id="res_level" class="progress-bar bg-warning" style="width: 0%"></div>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>置信度</td>
-                                <td>
-                                    <div class="progress" style="height: 10px;">
-                                        <div id="res_confidence" class="progress-bar bg-info" style="width: 0%"></div>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>斑点情况</td>
-                                <td id="res_spot">-</td>
-                            </tr>
-                            <tr>
-                                <td>提取特征</td>
-                                <td id="res_features">-</td>
-                            </tr>
-                        </table>
+                        <div id="visionResultText" class="vision-result-text">-</div>
                     </div>
                 </div>
                 <!-- 右栏：Agent对话面板 -->
@@ -118,7 +85,7 @@
                             <div class="chat-messages" id="chatMessages">
                                 <div class="text-center text-muted my-5">
                                     <i class="bi bi-chat-square-text" style="font-size: 48px;"></i>
-                                    <p class="mt-2">上传图片后，智能体将主动判断信息并与您交互</p >
+                                    <p class="mt-2">上传图片后自动识别，输入问题即可开始对话</p >
                                 </div>
                             </div>
                             <!-- 底部输入框 -->
@@ -184,71 +151,45 @@ imageInput.addEventListener('change', (e) => {
 
 /**
  * 处理图片上传 + 调用视觉接口
- * 答辩说明：这是前端核心流程：上传→预览→调接口→渲染结果→触发Agent对话
+ * 只做「预览 + 识别」两步，不触发聊天；聊天由用户主动发送消息触发。
  */
 async function handleImageUpload(file) {
     // 1. 显示预览图
     previewImg.src = URL.createObjectURL(file);
     previewBox.style.display = 'block';
 
-    // 2. 清空上一次的对话和结果
-    clearChat();
-    visionResultCard.style.display = 'none';
+    // 2. 清空旧图片的识别结果与旧会话上下文，避免旧结果污染新图片
+    currentVisionResult = null;
+    currentCaseId = null;
+    currentConversationId = null;
 
-    // 3. 显示加载提示
-    addMessage('agent', '正在上传图片并调用视觉模型分析，请稍候...');
+    // 3. 显示识别中的提示
+    const resultTextEl = document.getElementById('visionResultText');
+    resultTextEl.textContent = '正在识别图片，请稍候...';
+    visionResultCard.style.display = 'block';
 
     try {
-        // 4. 调用后端视觉接口
-        const result = await uploadImage(file);
-        currentVisionResult = result;
+        // 4. 调用后端视觉接口，仅做识别
+        const res = await uploadImage(file);
+        currentVisionResult = res.result || '';
 
-        // 5. 把视觉结果渲染到页面上
-        renderVisionResult(result);
-
-        // 6. 触发Agent首次对话（主动式交互的核心）
-        addMessage('agent', '图片分析完成，正在综合判断信息是否充分...');
-        
-        const chatRes = await sendChat({
-            vision_result: result,
-            message: '已上传图片，请分析'
-        });
-
-        // 替换加载提示为Agent真实回复
-        replaceLastMessage('agent', chatRes.reply);
-
-        // 启用输入框，用户可以回答Agent的问题
-        document.getElementById('chatInput').disabled = false;
-        document.getElementById('sendBtn').disabled = false;
-
-        // 如果Agent判断信息足够，直接返回诊断结果
-        if (chatRes.is_finished && chatRes.diagnosis) {
-            addDiagnosisResult(chatRes.diagnosis);
-            currentCaseId = chatRes.case_id;
-        }
-
+        // 5. 渲染识别结果到页面
+        renderVisionResult(currentVisionResult);
     } catch (error) {
-        replaceLastMessage('agent', '图片分析失败，请检查后端服务是否启动');
+        // 识别失败：显示错误，不自动聊天，不使用旧图片结果
+        currentVisionResult = null;
+        resultTextEl.textContent = '图片识别失败，请重试或更换图片';
         console.error(error);
     }
 }
 
 /**
- * 渲染视觉分析结果
+ * 渲染视觉分析结果：直接显示视觉模型返回的自然语言描述。
  */
-function renderVisionResult(data) {
+function renderVisionResult(description) {
     visionResultCard.style.display = 'block';
-    document.getElementById('res_crop').textContent = data.crop_type || '小麦';
-    document.getElementById('res_color').textContent = data.leaf_color || '-';
-    document.getElementById('res_level').style.width = data.abnormal_level + '%';
-    document.getElementById('res_confidence').style.width = Math.round(data.confidence * 100) + '%';
-    document.getElementById('res_spot').textContent = data.has_spots ? data.spot_description : '无明显斑点';
-    
-    // 渲染特征标签
-    const featuresHtml = data.features?.map(f => 
-        `<span class="badge bg-light text-dark me-1">${f}</span>`
-    ).join('') || '-';
-    document.getElementById('res_features').innerHTML = featuresHtml;
+    document.getElementById('visionResultText').textContent =
+        description || '（未获取到图片描述）';
 }
 
 // ==================== 2. 对话交互模块 ====================
@@ -279,12 +220,21 @@ async function sendUserMessage() {
     chatInput.disabled = true;
     sendBtn.disabled = true;
 
+    // 带上当前图片识别结果（若有），发送成功后清空，避免后续追问重复携带
+    const visionResult = currentVisionResult;
+
     try {
         const res = await sendChat({
             conversation_id: currentConversationId,
-            message: text
+            message: text,
+            vision_result: visionResult
         });
         currentConversationId = res.conversation_id;
+
+        // 只有识别结果未被新图片替换时才清空，防止误清新图片的结果
+        if (currentVisionResult === visionResult) {
+            currentVisionResult = null;
+        }
 
         // 替换加载提示为真实回复
         replaceLastMessage('agent', res.reply);
@@ -354,19 +304,6 @@ function addDiagnosisResult(diagnosis) {
     addMessage('agent', html);
 }
 
-/**
- * 清空聊天记录
- */
-function clearChat() {
-    chatMessages.innerHTML = `
-        <div class="text-center text-muted my-5">
-            <i class="bi bi-chat-square-text" style="font-size: 48px;"></i>
-            <p class="mt-2">上传图片后，智能体将主动判断信息并与您交互</p >
-        </div>
-    `;
-    document.getElementById('chatInput').disabled = true;
-    document.getElementById('sendBtn').disabled = true;
-}
 </script>
 </body>
 </html>

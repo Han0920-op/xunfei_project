@@ -46,15 +46,19 @@ async function request(url, method = 'GET', data = null) {
  * 作用：把用户上传的小麦图片发给后端，返回叶片颜色、异常程度等结构化数据
  * @param {File} file 选中的图片文件对象
  */
-async function uploadImage(file) {
+async function uploadImage(file,question) {
     // 图片上传要用FormData格式，不能用普通JSON
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('question', question || '请详细描述这张小麦图片的生长状况，包括作物类型、叶片颜色、斑点、异常程度等可见特征');
     const response = await fetch(BASE_URL + '/vision/upload', {
         method: 'POST',
         body: formData
     });
-    if (!response.ok) throw new Error('图片上传失败');
+    if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`图片分析失败: ${error}`);
+    }
     return await response.json();
 }
 /**
@@ -64,7 +68,11 @@ async function uploadImage(file) {
  * @param {object} data 对话数据，包含消息、视觉结果、案例ID
  */
 async function sendChat(data) {
-    return request('/chat', 'POST', {message:data.message,conversation_id:data.conversation_id??null});
+    return request('/chat', 'POST', {
+        message: data.message,
+        conversation_id: data.conversation_id ?? null,
+        vision_result: data.vision_result ?? null
+    });
 }
 /**
  * 接口3：获取历史案例列表
