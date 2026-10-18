@@ -20,7 +20,7 @@
         <ul class="sidebar-menu">
             <li>
                 <i class="bi bi-cpu"></i>
-                <a href=" ">智能诊断</a >
+                <a href="index.html">智能诊断</a >
             </li>
             <li class="active">
                 <i class="bi bi-file-earmark-text"></i>
@@ -61,6 +61,12 @@
                 <!-- 详情动态渲染 -->
             </div>
             <div class="modal-footer">
+                <button type="button" class="btn btn-outline-danger me-auto" id="deleteBtn" onclick="deleteCurrentCase()">
+                    <i class="bi bi-trash"></i> 删除
+                </button>
+                <button type="button" class="btn btn-success" id="finishBtn" onclick="finishCurrentCase()">
+                    <i class="bi bi-check2-circle"></i> 结束跟踪
+                </button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
                 <button type="button" class="btn btn-primary" onclick="goToRecheck()">
                     <i class="bi bi-arrow-repeat"></i> 前往复查对比
@@ -74,6 +80,8 @@
 
 <script>
 let currentCaseId = null;
+let currentConversationId = null;
+let currentCaseStatus = null;
 let detailModal = null;
 // 页面加载完成后执行
 window.onload = function() {
@@ -104,7 +112,7 @@ async function loadHistory() {
         listDom.innerHTML = list.map(item => `
             <div class="col-3">
                 <div class="card case-card" onclick="viewDetail('${item.id}')">
-                    < img src="${item.thumbnail}" class="card-img-top" alt="案例图" style="height: 160px; object-fit: cover;">
+                    <img src="${BASE_URL}${item.thumbnail}" class="card-img-top" alt="案例图" style="height: 160px; object-fit: cover;">
                     <div class="card-body p-3">
                         <div class="small text-muted mb-1">${item.create_time}</div>
                         <span class="badge ${getStatusClass(item.status)}">${item.status}</span>
@@ -129,31 +137,61 @@ function getStatusClass(status) {
     switch(status) {
         case '已完成': return 'bg-success';
         case '进行中': return 'bg-warning text-dark';
+        case '失败': return 'bg-danger';
         default: return 'bg-secondary';
     }
 }
+/**
+ * 根据案例状态渲染「诊断结论 / 诊断建议」区块，区分三种状态。
+ */
+function renderDiagnosisSection(detail) {
+    if (detail.status === '失败') {
+        return `<p class="text-danger">诊断失败，请重新上传图片或稍后重试。</p >`;
+    }
+    // 诊断结论一旦产生就展示，不因「进行中 / 已完成」状态隐藏。
+    if (detail.diagnosis) {
+        return `
+            <h6>诊断结论</h6>
+            <p>${detail.diagnosis}</p >
+            <h6>诊断建议</h6>
+            <p>${detail.advice || '暂无'}</p >
+        `;
+    }
+    return `<p class="text-muted">诊断尚未完成，暂无诊断结果。</p >`;
+}
+
 /**
  * 查看案例详情
  */
 async function viewDetail(caseId) {
     currentCaseId = caseId;
+    currentConversationId = null;
     const modalBody = document.getElementById('modalBody');
     modalBody.innerHTML = '<div class="text-center py-4"><div class="spinner-border"></div></div>';
     detailModal.show();
     try {
         const detail = await getCaseDetail(caseId);
+        currentConversationId = detail.conversation_id ?? null;
+        currentCaseStatus = detail.status ?? null;
+        // 只有「进行中」的案例才提供「结束跟踪」；失败案例不允许结束。
+        document.getElementById('finishBtn').style.display =
+            (detail.status === '进行中') ? '' : 'none';
         modalBody.innerHTML = `
             <div class="row">
                 <div class="col-4">
                     <h6>上传图片</h6>
-                    < img src="${detail.image}" class="img-thumbnail" alt="案例图">
+                    <img src="${BASE_URL}${detail.image}" class="img-thumbnail" alt="案例图">
                 </div>
                 <div class="col-8">
                     <p><strong>案例ID：</strong>${detail.id}</p >
                     <p><strong>创建时间：</strong>${detail.create_time}</p >
+                    <p><strong>状态：</strong><span class="badge ${getStatusClass(detail.status)}">${detail.status}</span></p >
+                    <p><strong>最近复查：</strong>${detail.last_recheck_time || '暂无'}</p >
+                    <p><strong>复查次数：</strong>${detail.recheck_count}</p >
                     <hr>
-                    <h6>诊断结果</h6>
-                    ${detail.diagnosis || '暂无诊断结果'}
+                    <h6>图片识别描述</h6>
+                    <p>${detail.recognition || '暂无识别描述'}</p >
+                    ${renderDiagnosisSection(detail)}
                 </div>
             </div>
         `;
@@ -163,11 +201,46 @@ async function viewDetail(caseId) {
 }
 
 /**
- * 跳转到诊断页进行复查对比
+ * 跳转到诊断页进行复查对比。
+ * 有关联会话时带上 conversationId 恢复历史聊天；没有会话（旧案例）也允许进入，
+ * 诊断页会提示重新上传图片开始跟踪。
  */
 function goToRecheck() {
+    if (currentCaseId == null) return;
     detailModal.hide();
-    window.location.href = `index.html?caseId=${currentCaseId}`;
+    let url = `index.html?caseId=${currentCaseId}`;
+    if (currentConversationId) url += `&conversationId=${currentConversationId}`;
+    window.location.href = url;
+}
+
+/**
+ * 删除当前案例（二次确认后调用后端删除接口）。
+ */
+async function deleteCurrentCase() {
+    if (currentCaseId == null) return;
+    if (!confirm('确定删除该案例吗？删除后不可恢复，且不会影响关联的聊天记录。')) return;
+    try {
+        await deleteCase(currentCaseId);
+        detailModal.hide();
+        loadHistory();
+    } catch (error) {
+        alert('删除失败：' + (error.message || '未知错误'));
+    }
+}
+
+/**
+ * 结束跟踪：把当前「进行中」的案例标记为「已完成」。
+ */
+async function finishCurrentCase() {
+    if (currentCaseId == null) return;
+    try {
+        const res = await finishCase(currentCaseId);
+        currentCaseStatus = res.status ?? '已完成';
+        detailModal.hide();
+        loadHistory();
+    } catch (error) {
+        alert('操作失败，请重试');
+    }
 }
 </script>
 <style>

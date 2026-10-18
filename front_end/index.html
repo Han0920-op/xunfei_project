@@ -23,7 +23,7 @@
         <ul class="sidebar-menu">
             <li class="active">
                 <i class="bi bi-cpu"></i>
-                <a href=" ">智能诊断</a >
+                <a href="index.html">智能诊断</a >
             </li>
             <li>
                 <i class="bi bi-file-earmark-text"></i>
@@ -39,6 +39,8 @@
             <div class="page-title">小麦生长异常智能诊断</div>
             <span class="badge bg-success">MVP版本</span>
         </div>
+        <!-- 复查模式横幅（从历史案例进入时显示） -->
+        <div id="recheckBanner" class="alert alert-info mb-3" style="display:none;"></div>
         <!-- 页面主体：左右分栏 -->
         <div class="page-content">
             <div class="row g-3">
@@ -111,8 +113,10 @@
 <script>
 // ==================== 全局变量 ====================
 let currentVisionResult = null; // 保存视觉分析结果
+let currentImagePath = null;    // 本次图片在服务器上的路径（复查时关联用）
 let currentCaseId = null;       // 当前诊断案例ID
 let currentConversationId = null; // 当前对话会话ID
+let recheckCaseId = null;       // 复查模式标记：从 URL 进入复查时非空
 
 // ==================== 1. 图片上传模块 ====================
 const uploadArea = document.getElementById('uploadArea');
@@ -158,10 +162,13 @@ async function handleImageUpload(file) {
     previewImg.src = URL.createObjectURL(file);
     previewBox.style.display = 'block';
 
-    // 2. 清空旧图片的识别结果与旧会话上下文，避免旧结果污染新图片
+    // 2. 清空上一次的识别结果；复查模式下保留原案例/会话，新案例模式才重置
     currentVisionResult = null;
-    currentCaseId = null;
-    currentConversationId = null;
+    currentImagePath = null;
+    if (!recheckCaseId) {
+        currentCaseId = null;
+        currentConversationId = null;
+    }
 
     // 3. 显示识别中的提示
     const resultTextEl = document.getElementById('visionResultText');
@@ -169,15 +176,20 @@ async function handleImageUpload(file) {
     visionResultCard.style.display = 'block';
 
     try {
-        // 4. 调用后端视觉接口，仅做识别
-        const res = await uploadImage(file);
+        // 4. 调用后端视觉接口（复查模式会带上 case_id，避免新建案例）
+        const res = await uploadImage(file, undefined, recheckCaseId);
         currentVisionResult = res.result || '';
+        currentImagePath = res.image_path ?? null;
+        if (!recheckCaseId) {
+            currentCaseId = res.case_id ?? null;   // 新案例：记住本次图片对应的案例 ID
+        }
 
         // 5. 渲染识别结果到页面
         renderVisionResult(currentVisionResult);
     } catch (error) {
         // 识别失败：显示错误，不自动聊天，不使用旧图片结果
         currentVisionResult = null;
+        currentImagePath = null;
         resultTextEl.textContent = '图片识别失败，请重试或更换图片';
         console.error(error);
     }
@@ -222,18 +234,27 @@ async function sendUserMessage() {
 
     // 带上当前图片识别结果（若有），发送成功后清空，避免后续追问重复携带
     const visionResult = currentVisionResult;
+    const imagePath = currentImagePath;
 
     try {
         const res = await sendChat({
             conversation_id: currentConversationId,
             message: text,
-            vision_result: visionResult
+            vision_result: visionResult,
+            case_id: currentCaseId,
+            image_path: imagePath
         });
         currentConversationId = res.conversation_id;
+        if (currentConversationId) {
+            localStorage.setItem('lastConversationId', currentConversationId);
+        }
 
         // 只有识别结果未被新图片替换时才清空，防止误清新图片的结果
         if (currentVisionResult === visionResult) {
             currentVisionResult = null;
+        }
+        if (currentImagePath === imagePath) {
+            currentImagePath = null;
         }
 
         // 替换加载提示为真实回复
@@ -303,6 +324,80 @@ function addDiagnosisResult(diagnosis) {
     `;
     addMessage('agent', html);
 }
+
+// ==================== 3. 会话恢复与复查 ====================
+/**
+ * 按会话 ID 加载历史消息并渲染
+ */
+async function loadConversation(conversationId) {
+    chatMessages.innerHTML = '<div class="text-center text-muted my-5"><div class="spinner-border"></div><p class="mt-2">加载历史消息中...</p></div>';
+    try {
+        const messages = await getConversationMessages(conversationId);
+        chatMessages.innerHTML = '';
+        if (!messages || messages.length === 0) {
+            chatMessages.innerHTML = '<div class="text-center text-muted my-5">暂无历史消息</div>';
+            return;
+        }
+        messages.forEach(m => addMessage(m.role, m.content));
+    } catch (error) {
+        chatMessages.innerHTML = '<div class="text-center text-danger my-5">加载历史消息失败，请检查后端服务</div>';
+        console.error(error);
+    }
+}
+
+/**
+ * 加载复查案例上下文：显示横幅 + 恢复关联会话
+ */
+async function loadCaseContext(caseId) {
+    const banner = document.getElementById('recheckBanner');
+    try {
+        const detail = await getCaseDetail(caseId);
+        if (detail.conversation_id) {
+            currentConversationId = detail.conversation_id;
+            await loadConversation(detail.conversation_id);
+            banner.className = 'alert alert-info mb-3';
+            banner.style.display = 'block';
+            banner.innerHTML = `<i class="bi bi-arrow-repeat"></i> 正在复查案例 #${detail.id}（${detail.create_time}）。<br><small>上次诊断：${detail.diagnosis || '暂无'}</small>`;
+        } else {
+            banner.className = 'alert alert-info mb-3';
+            banner.style.display = 'block';
+            banner.innerHTML = '<i class="bi bi-arrow-repeat"></i> 正在复查案例 #' + detail.id +
+                '。该案例暂无历史聊天记录，可直接上传新图片开始跟踪。';
+        }
+    } catch (error) {
+        banner.className = 'alert alert-danger mb-3';
+        banner.style.display = 'block';
+        banner.innerHTML = '加载案例失败，请检查后端服务。';
+        console.error(error);
+    }
+}
+
+// 页面加载：根据 URL 参数恢复会话 / 进入复查
+window.onload = function() {
+    const params = new URLSearchParams(window.location.search);
+    const caseIdParam = params.get('caseId');
+    const conversationIdParam = params.get('conversationId');
+
+    if (caseIdParam) {
+        recheckCaseId = parseInt(caseIdParam, 10);
+        currentCaseId = recheckCaseId;
+    }
+    if (conversationIdParam) {
+        currentConversationId = parseInt(conversationIdParam, 10);
+    }
+
+    if (recheckCaseId) {
+        loadCaseContext(recheckCaseId);
+    } else if (currentConversationId) {
+        loadConversation(currentConversationId);
+    } else {
+        const saved = localStorage.getItem('lastConversationId');
+        if (saved) {
+            currentConversationId = saved;
+            loadConversation(saved);
+        }
+    }
+};
 
 </script>
 </body>
