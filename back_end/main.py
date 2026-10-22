@@ -1,15 +1,17 @@
+import json
 import os
 import uuid
 from contextlib import asynccontextmanager
 from typing import Optional
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Depends, FastAPI, HTTPException, UploadFile, File, Form
+from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 from vision import understand_image
-import config
+import agent
 import llm
 from database import Base, engine, get_db, SessionLocal
 from models import Case, Conversation, Message, Recheck
@@ -199,8 +201,8 @@ def chat(req: ChatRequest, db: Session = Depends(get_db)):
         .all()
     )
 
-    # 3. 组装大模型需要的 messages 格式：system + 历史 + 当前用户消息。
-    #    若本轮带了图片视觉分析结果，就把它拼进当前用户消息，让文本模型也能“看到”图片信息。
+    # 3. 组装「历史 + 当前用户消息」。若本轮带了图片视觉分析结果，就把它拼进
+    #    当前用户消息，让文本模型也能“看到”图片信息。system 提示词由 agent 内部注入。
     user_content = req.message
     if req.vision_result:
         user_content = (
@@ -208,16 +210,12 @@ def chat(req: ChatRequest, db: Session = Depends(get_db)):
             f"{req.vision_result}\n\n"
             f"【用户问题】\n{req.message}"
         )
-    messages = []
-    if config.SYSTEM_PROMPT:
-        messages.append({"role": "system", "content": config.SYSTEM_PROMPT})
-    for m in history:
-        messages.append({"role": m.role, "content": m.content})
-    messages.append({"role": "user", "content": user_content})
+    history_messages = [{"role": m.role, "content": m.content} for m in history]
+    history_messages.append({"role": "user", "content": user_content})
 
-    # 4. 调用现有的大模型接口（完全复用 llm.chat，不改动）。
+    # 4. 调用 Agent 编排循环（内含工具调用决策与执行）。
     try:
-        reply = llm.chat(messages)
+        reply = agent.run(history_messages)
     except llm.LLMError as exc:
         # 本次诊断关联了案例时，把案例标记为「失败」。
         if req.case_id is not None:
@@ -257,6 +255,122 @@ def chat(req: ChatRequest, db: Session = Depends(get_db)):
 
     db.commit()
     return ChatResponse(reply=reply, conversation_id=conversation_id, case_id=req.case_id)
+
+
+def _sse(payload: dict) -> str:
+    """把一段数据封装成 SSE 格式（data: <json>\n\n）。"""
+    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+def _mark_case_failed(case_id: Optional[int]):
+    """流式调用失败时，把关联案例标记为「失败」。"""
+    if case_id is None:
+        return
+    db = SessionLocal()
+    try:
+        case = db.get(Case, case_id)
+        if case is not None:
+            case.status = "失败"
+            db.commit()
+    finally:
+        db.close()
+
+
+def _save_stream_reply(conversation_id: int, req: ChatRequest, reply: str):
+    """流式输出结束后，落库 assistant 消息并更新案例（逻辑与 /chat 第 5、6 步一致）。"""
+    db = SessionLocal()
+    try:
+        db.add(Message(conversation_id=conversation_id, role="assistant", content=reply))
+
+        if req.case_id is not None:
+            case = db.get(Case, req.case_id)
+            if case is not None:
+                if case.conversation_id is None:
+                    case.conversation_id = conversation_id
+                if req.vision_result:
+                    if not case.diagnosis:
+                        case.diagnosis = reply
+                    else:
+                        db.add(Recheck(
+                            case_id=case.id,
+                            description=req.message,
+                            image_path=req.image_path or "",
+                            recognition=req.vision_result,
+                            diagnosis=reply,
+                        ))
+                        if case.status == "已完成":
+                            case.status = "进行中"
+        db.commit()
+    finally:
+        db.close()
+
+
+@app.post("/chat/stream")
+def chat_stream(req: ChatRequest, db: Session = Depends(get_db)):
+    # 1. 确定会话（同 /chat）。
+    if req.conversation_id is None:
+        conversation = Conversation()
+        db.add(conversation)
+        db.commit()
+        db.refresh(conversation)
+        conversation_id = conversation.id
+    else:
+        conversation = db.get(Conversation, req.conversation_id)
+        if conversation is None:
+            raise HTTPException(status_code=404, detail="会话不存在")
+        conversation_id = conversation.id
+
+    # 2. 读历史消息。
+    history = (
+        db.query(Message)
+        .filter(Message.conversation_id == conversation_id)
+        .order_by(Message.id)
+        .all()
+    )
+
+    # 3. 组装「历史 + 当前用户消息」（同 /chat）。system 提示词由 agent 内部注入。
+    user_content = req.message
+    if req.vision_result:
+        user_content = (
+            "【图片视觉分析结果】\n"
+            f"{req.vision_result}\n\n"
+            f"【用户问题】\n{req.message}"
+        )
+    history_messages = [{"role": m.role, "content": m.content} for m in history]
+    history_messages.append({"role": "user", "content": user_content})
+
+    # 4. 先把用户消息落库，保证流中断时用户的话也不会丢。
+    db.add(Message(conversation_id=conversation_id, role="user", content=user_content))
+    db.commit()
+
+    def gen():
+        full = ""
+        try:
+            # 遍历 Agent 编排循环产出的三类事件：工具调用 / 工具结果 / 最终回答增量。
+            for event in agent.run_stream(history_messages):
+                etype = event["type"]
+                if etype == "tool_call":
+                    yield _sse({"tool_call": {"tool": event["tool"], "args": event["args"]}})
+                elif etype == "tool_result":
+                    yield _sse({"tool_result": {"tool": event["tool"], "result": event["result"]}})
+                elif etype == "delta":
+                    full += event["content"]
+                    yield _sse({"delta": event["content"]})
+        except llm.LLMError as exc:
+            _mark_case_failed(req.case_id)
+            yield _sse({"error": str(exc), "conversation_id": conversation_id, "case_id": req.case_id})
+            return
+
+        _save_stream_reply(conversation_id, req, full)
+        yield _sse({"done": True, "conversation_id": conversation_id, "case_id": req.case_id})
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
 @app.post("/vision/upload")
 async def upload_image(
     file: UploadFile = File(...),

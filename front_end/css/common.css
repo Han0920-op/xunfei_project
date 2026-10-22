@@ -204,6 +204,12 @@ body {
 .message-item.user .message-bubble {
     background: #d4edda;
 }
+/* 工具调用过程的状态气泡（“正在查询天气…”/“已获取”） */
+.message-bubble.tool-status {
+    background: #e6f7ff;
+    color: #0050b3;
+    border: 1px dashed #91d5ff;
+}
 
 
 /* 视觉模型返回的自然语言描述  */

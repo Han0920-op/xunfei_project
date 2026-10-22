@@ -86,6 +86,83 @@ async function sendChat(data) {
     });
 }
 /**
+ * 接口2（流式版）：给Agent发消息，逐段接收回复
+ * 对应后端：/chat/stream
+ * @param {object} data     对话数据（同 sendChat）
+ * @param {Function} onDelta       每收到一段增量文本时回调
+ * @param {Function} onToolCall    收到 tool_call 事件时回调（入参 { tool, args }）
+ * @param {Function} onToolResult  收到 tool_result 事件时回调（入参 { tool, result }）
+ * @returns {Promise<object>} 结束时返回 { conversation_id, case_id } 等元信息
+ */
+async function sendChatStream(data, onDelta, onToolCall, onToolResult) {
+    const resp = await fetch(BASE_URL + '/chat/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            message: data.message,
+            conversation_id: data.conversation_id ?? null,
+            vision_result: data.vision_result ?? null,
+            case_id: data.case_id ?? null,
+            image_path: data.image_path ?? null
+        })
+    });
+    if (!resp.ok) {
+        let detail = `${resp.status} ${resp.statusText}`;
+        try {
+            const body = await resp.json();
+            if (body.detail) detail = body.detail;
+        } catch (_) {
+            // 响应体不是 JSON，用默认 status+statusText
+        }
+        throw new Error(detail);
+    }
+    if (!resp.body) throw new Error('当前浏览器不支持流式响应');
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';   // 跨 chunk 的残余字节，SSE 事件可能被网络层从中间切断
+    let meta = {};
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        // 每个 SSE 事件以空行分隔，最后一个元素可能是半截，留到下一轮
+        const events = buffer.split('\n\n');
+        buffer = events.pop();
+        for (const event of events) {
+            for (const line of event.split('\n')) {
+                const trimmed = line.trim();
+                if (!trimmed.startsWith('data:')) continue;
+                const payload = trimmed.slice(5).trim();
+                if (!payload) continue;
+                let obj;
+                try {
+                    obj = JSON.parse(payload);
+                } catch (_) {
+                    continue;
+                }
+                if (obj.tool_call) {
+                    if (onToolCall) onToolCall(obj.tool_call);
+                } else if (obj.tool_result) {
+                    if (onToolResult) onToolResult(obj.tool_result);
+                } else if (obj.delta) {
+                    onDelta(obj.delta);
+                } else if (obj.done) {
+                    meta = obj;
+                } else if (obj.error) {
+                    const err = new Error(obj.error);
+                    // 后端失败时也回传会话/案例 ID，方便前端恢复会话上下文
+                    err.conversation_id = obj.conversation_id;
+                    err.case_id = obj.case_id;
+                    throw err;
+                }
+            }
+        }
+    }
+    return meta;
+}
+/**
  * 接口2.5：按会话 ID 读回完整聊天记录
  * 对应后端：/conversation/{conversationId}/messages
  * 作用：页面刷新 / 从历史案例进入复查时，恢复历史对话

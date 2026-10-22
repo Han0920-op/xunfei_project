@@ -217,6 +217,26 @@ chatInput.addEventListener('keyup', (e) => {
 });
 
 /**
+ * 工具名 -> 中文显示名（新增工具时在这里补一条即可）
+ */
+function toolLabel(name) {
+    const map = { get_weather: '天气', get_soil: '土壤墒情', search_knowledge: '知识库' };
+    return map[name] || name;
+}
+
+/**
+ * 从工具结果 JSON 字符串里取出数据来源（模拟 / 实时），用于气泡标注。
+ */
+function toolSource(result) {
+    try {
+        const r = JSON.parse(result);
+        return r.source === '模拟' ? '模拟' : (r.source || '实时');
+    } catch (_) {
+        return '实时';
+    }
+}
+
+/**
  * 发送用户消息
  */
 async function sendUserMessage() {
@@ -227,24 +247,49 @@ async function sendUserMessage() {
     addMessage('user', text);
     chatInput.value = '';
 
-    // 添加Agent加载提示
+    // 先显示加载提示，首个增量到达时再清空开始流式填充
     addMessage('agent', '思考中...');
+    const bubble = chatMessages.lastElementChild.querySelector('.message-bubble');
     chatInput.disabled = true;
     sendBtn.disabled = true;
 
     // 带上当前图片识别结果（若有），发送成功后清空，避免后续追问重复携带
     const visionResult = currentVisionResult;
     const imagePath = currentImagePath;
+    let received = false;
 
     try {
-        const res = await sendChat({
+        const meta = await sendChatStream({
             conversation_id: currentConversationId,
             message: text,
             vision_result: visionResult,
             case_id: currentCaseId,
             image_path: imagePath
+        }, (delta) => {
+            if (!received) {
+                bubble.textContent = '';
+                bubble.classList.remove('tool-status');
+                received = true;
+            }
+            // 用 textContent 追加，避免把回复当 HTML 解析
+            bubble.textContent += delta;
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }, (toolCall) => {
+            // Agent 开始调用工具：把「思考中」气泡临时改成查询状态
+            const name = toolCall.tool || '工具';
+            const loc = (toolCall.args && toolCall.args.location) || '';
+            bubble.textContent = `🛰️ 正在查询${toolLabel(name)}${loc ? '：' + loc : ''}…`;
+            bubble.classList.add('tool-status');
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }, (toolResult) => {
+            // 工具执行完成：更新状态气泡，明确标注数据来源（模拟/实时）
+            const source = toolSource(toolResult.result);
+            bubble.textContent = `已获取${toolLabel(toolResult.tool)}数据（${source}）`;
+            bubble.classList.add('tool-status');
+            chatMessages.scrollTop = chatMessages.scrollHeight;
         });
-        currentConversationId = res.conversation_id;
+
+        currentConversationId = meta.conversation_id;
         if (currentConversationId) {
             localStorage.setItem('lastConversationId', currentConversationId);
         }
@@ -256,18 +301,16 @@ async function sendUserMessage() {
         if (currentImagePath === imagePath) {
             currentImagePath = null;
         }
-
-        // 替换加载提示为真实回复
-        replaceLastMessage('agent', res.reply);
-
-        // 诊断完成则显示结果卡片
-        if (res.is_finished && res.diagnosis) {
-            addDiagnosisResult(res.diagnosis);
-            currentCaseId = res.case_id;
-        }
-
     } catch (error) {
-        replaceLastMessage('agent', '请求失败，请重试');
+        // 失败时仍尽量恢复会话，避免用户已发送的消息丢失上下文
+        if (error.conversation_id) {
+            currentConversationId = error.conversation_id;
+            localStorage.setItem('lastConversationId', error.conversation_id);
+        }
+        // 流中断但已有部分内容时保留已输出的文字，只有完全没收到才提示失败
+        if (!received) {
+            bubble.textContent = '请求失败，请重试';
+        }
     } finally {
         chatInput.disabled = false;
         sendBtn.disabled = false;
