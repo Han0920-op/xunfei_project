@@ -117,8 +117,8 @@
   const suggestions = [
     "叶片局部发黄，先观察什么？",
     "怎样拍照，方便下次复查？",
-    "查天气前，需要哪些信息？",
-    "如何记录近期水肥操作？",
+    "登记证号应该在哪里核对？",
+    "发现虫体后，需要调查什么？",
   ];
   function layout() {
     root.innerHTML = `<div class="diagnosis-intro"><div><span class="eyebrow">OBSERVE · UNDERSTAND · FOLLOW UP</span><h1>田间的疑问，和智麦一起梳理。</h1><p class="muted" style="font-size:12px;margin-top:7px">先看见，再判断。图片观察与进一步推断，清楚分开。</p></div><a class="btn" href="history.html">${icon("history")} 回看诊断历史</a></div><div class="notice ${demo ? "amber" : ""} mb">${icon("book")}<span>${demo ? "当前为交互演示：图片不会发送给模型，回答为固定场景示例，不用于实际农业决策。" : "已选择后端连接模式。识别与回复以实际接口结果为准，未返回的数据不会补造。"}</span>${!demo ? '<button class="text-link" data-action="settings">连接设置</button>' : ""}</div><div id="caseBanner"></div><div class="diagnosis-layout"><aside class="diagnosis-side"><section class="panel"><div class="panel-head"><div><h2>先留下一张田间照片</h2><p>也可以不上传图片，直接提问</p></div>${icon("image")}</div><div class="upload-body"><label class="sr-only" for="imageInput">选择小麦图片</label><input id="imageInput" type="file" accept="image/jpeg,image/png,image/webp" hidden><button class="upload-zone" id="uploadZone"><span class="upload-symbol">${icon("upload")}</span><strong>点击选择，或拖入一张图片</strong><small>JPG / PNG / WEBP · 最大 4 MB<br>建议同时记录固定采样点与拍摄日期</small></button><div id="photoPreview" hidden><div class="preview-wrap"><img id="previewImg" alt="本次选中的田间照片"><button class="icon-btn preview-remove" id="removeImage" aria-label="移除当前图片">${icon("close")}</button></div><p class="preview-filename" id="previewFilename"></p><div class="preview-actions"><span class="badge gray">本次图片</span><button class="text-link" id="changeImage">${icon("refresh")} 重新选择</button></div></div><p class="vision-disclaimer">选择图片只${demo ? "准备演示" : "进行识别"}，不会自动发送聊天。移除图片会保留当前对话。</p></div></section><section class="panel" id="visionPanel" hidden><div class="panel-head"><div><h2>图片观察</h2><p>${demo ? "固定演示描述，非图像识别结果" : "视觉模型实际返回的描述"}</p></div>${badge(demo ? "演示" : "图像观察", "gray")}</div><div class="panel-body"><div class="vision-status" id="visionStatus"></div><div class="vision-result" id="visionResult"></div><div id="visionRetry" hidden><button class="btn small" id="retryImage">${icon("refresh")} 重试识别</button></div><p class="vision-disclaimer">可见特征不等于确定病因。具体判断仍需结合生育期、分布与管理记录。</p></div></section><section class="panel tips-panel"><div class="panel-head"><h2>让下次比较更有依据</h2>${icon("leaf")}</div><ul class="tips-list"><li>${icon("pin")}尽量固定采样位置，同时保留全景与近景。</li><li>${icon("sun")}使用相近光照、角度与距离，减少拍摄差异。</li><li>${icon("calendar")}记录近期实际操作，便于解释前后变化。</li></ul></section></aside><section class="panel chat-card"><div class="chat-header"><span class="agent-avatar">${icon("wheat")}</span><div><h2>智麦 · 田间观察助手</h2><small>${demo ? "演示对话 · 不调用真实模型" : "连接后端 · 回复来源可核对"}</small></div>${badge(demo ? "演示模式" : "实际接口", demo ? "amber" : "green")}<button class="icon-btn" id="newConversation" aria-label="开始新会话" title="开始新会话">${icon("plus")}</button></div><div class="chat-messages" id="chatMessages" role="log" aria-label="与智麦的对话" aria-live="polite"></div><div class="chat-composer"><div class="attachment-context" id="attachmentContext" hidden></div><div id="restoreNotice"></div><div class="composer-field"><label class="sr-only" for="chatInput">输入你的田间问题</label><textarea id="chatInput" rows="2" maxlength="12000" placeholder="说说你观察到的情况，或直接提出问题…"></textarea><button class="send-btn" id="sendBtn" aria-label="发送消息">${icon("send")}</button></div><div class="composer-hint"><span id="composerHint">${demo ? "示例回答仅用于体验，不代表真实诊断" : "图像与模型回答仅作辅助，请结合现场证据"}</span><span>Enter 发送 · Shift + Enter 换行</span></div></div></section></div>`;
@@ -185,6 +185,7 @@
     renderPhoto();
     renderBanner();
     sync();
+    Z.Care?.attachDiagnosis(d);
   }
   function renderBanner() {
     const el = document.getElementById("caseBanner");
@@ -205,7 +206,7 @@
   }
   function messageHTML(m) {
     const isUser = m.role === "user";
-    return `<article class="message-item ${isUser ? "user" : "agent"}" id="msg-${esc(m.id)}"><span class="message-avatar">${isUser ? "我" : icon("wheat")}</span><div class="message-content"><div class="message-meta"><span>${isUser ? "我" : demo ? "智麦 · 演示" : "智麦"}</span><time>${esc(m.when || "")}</time></div>${toolHTML(m)}<div class="message-bubble ${m.processing && !m.content ? "processing" : ""}">${m.content ? (isUser ? esc(m.content) : markdown(m.content)) : `<span class="spinner"></span>${esc(m.status || "正在请求回复…")}`}</div>${m.error ? `<div class="message-error" role="alert">${esc(m.error)}${m.request && !m.stopped ? `<button class="btn small" data-retry-message="${esc(m.id)}">${icon("refresh")} 重试此问题</button>` : ""}</div>` : ""}${!isUser && !m.processing && !m.error ? `<div class="message-tools">${icon("book")}${demo ? "固定场景演示 · 非真实诊断" : "依据当前对话生成 · 请核对现场信息"}</div><div class="message-followups"><button class="text-link" data-save-observation="${esc(m.id)}">${icon("history")} 加入地块记录</button><button class="text-link" data-followup-task="${esc(m.id)}">${icon("calendar")} 安排后续复查</button></div>` : ""}</div></article>`;
+    return `<article class="message-item ${isUser ? "user" : "agent"}" id="msg-${esc(m.id)}"><span class="message-avatar">${isUser ? "我" : icon("wheat")}</span><div class="message-content"><div class="message-meta"><span>${isUser ? "我" : demo ? "智麦 · 演示" : "智麦"}</span><time>${esc(m.when || "")}</time></div>${toolHTML(m)}<div class="message-bubble ${m.processing && !m.content ? "processing" : ""}">${m.content ? (isUser ? esc(m.content) : markdown(!demo ? "**已收到原有模型接口的回复。**\n\n当前回复未经过结构化审核，不能作为病因、是否施药或具体用药依据。请在上方补充现场资料，等待新接口核对观察依据和分流条件。" : m.content)) : `<span class="spinner"></span>${esc(m.status || "正在请求回复…")}`}</div>${m.error ? `<div class="message-error" role="alert">${esc(m.error)}${m.request && !m.stopped ? `<button class="btn small" data-retry-message="${esc(m.id)}">${icon("refresh")} 重试此问题</button>` : ""}</div>` : ""}${!isUser && !m.processing && !m.error ? `<div class="message-tools">${icon("book")}${demo ? "固定场景演示 · 非真实诊断" : "非结构化回复尚未进入科学用药决策"}</div><div class="message-followups">${demo ? `<button class="text-link" data-save-observation="${esc(m.id)}">${icon("history")} 加入地块记录</button>` : ""}<button class="text-link" data-followup-task="${esc(m.id)}">${icon("calendar")} 安排后续复查</button></div>` : ""}</div></article>`;
   }
   function renderMessages() {
     const el = document.getElementById("chatMessages");
@@ -251,6 +252,7 @@
     context.hidden = !(d.imageStatus === "ready" && !d.consumed);
     context.innerHTML = `${icon("image")}本轮将携带当前图片${demo ? "演示上下文" : "识别结果"}`;
     sync();
+    Z.Care?.photoChanged();
   }
   function sync() {
     const blocked = d.sending || d.restoring;
@@ -547,6 +549,7 @@
           Z.toast("当前浏览器无法保存会话恢复信息。", "error");
         }
       }
+      Z.Care?.linkChat(d.conversationId);
     } catch (err) {
       m.processing = false;
       if (err.conversation_id) {
@@ -667,7 +670,11 @@
         demo ? "zhimai.demoConversation" : "zhimai.liveConversation",
       );
     } catch {}
-    history.replaceState(null, "", "diagnosis.html");
+    history.replaceState(
+      null,
+      "",
+      `diagnosis.html${Z.Care?.activeId ? "?clinicalId=" + encodeURIComponent(Z.Care.activeId) : ""}`,
+    );
     renderBanner();
     renderMessages();
     sync();
@@ -755,7 +762,7 @@
     }
   }
   layout();
-  if (!d.conversationId && !d.caseId)
+  if (!d.conversationId && !d.caseId && !Z.Care?.activeId)
     d.conversationId =
       Z.readSetting(
         demo ? "zhimai.demoConversation" : "zhimai.liveConversation",

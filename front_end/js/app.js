@@ -14,6 +14,7 @@
   }
   Z.shell();
   const root = document.getElementById("mainContent");
+  Z.root = root;
   const view = {
     fieldFilter: "全部地块",
     fieldQuery: "",
@@ -54,70 +55,6 @@
     const f = Z.field(t.fieldId);
     return `<div class="task-row ${t.done ? "done" : ""}"><button class="task-check ${t.done ? "done" : ""}" data-action="toggle-task" data-id="${esc(t.id)}" aria-label="${t.done ? "重新打开" : "标记完成"}：${esc(t.title)}" aria-pressed="${t.done}">${t.done ? icon("check") : ""}</button><div class="task-row-main"><button class="task-title" data-action="task-detail" data-id="${esc(t.id)}">${esc(t.title)}</button><div class="task-meta"><span>${esc(f?.name || "未关联地块")}</span><span>·</span><span>${full ? esc(t.source) : briefDate(t.date)}</span>${t.demo ? "<span>· 演示</span>" : ""}</div>${full ? `<p>${esc(t.note)}</p>` : ""}</div>${full ? `<div class="task-inline"><div class="task-date">${fmt(t.date)}<small>${t.demo ? "历史情境日期" : "计划日期"}</small></div>${badge(t.done ? "已完成" : t.priority, t.done ? "gray" : t.priority === "优先关注" ? "amber" : "green")}<button class="btn small" data-action="task-detail" data-id="${esc(t.id)}">查看详情</button></div>` : `${badge(t.priority, t.priority === "优先关注" ? "amber" : "gray")}<button class="text-link" data-action="task-detail" data-id="${esc(t.id)}">查看 ${icon("chevron")}</button>`}</div>`;
   }
-  function dashboard() {
-    const pending = Z.state.tasks.filter((t) => !t.done);
-    const area = Z.state.fields.reduce((n, f) => n + Number(f.area || 0), 0);
-    root.innerHTML =
-      heading(
-        "YOUR DAILY FIELD NOTES",
-        "今天，去田里看看。",
-        "从一次观察开始，陪伴小麦的每一份生长。",
-        button("记录新观察", "plus", "new-record"),
-        "dashboard-heading",
-      ) +
-      `<section class="dashboard-hero" aria-label="地块生长档案介绍"><div class="hero-copy"><span class="eyebrow">一块田 · 一季生长 · 持续陪伴</span><h1>把麦田的变化，<br>好好记录下来。</h1><p>连接每一次观察，让下一步行动更有依据。</p><a class="btn primary" href="fields.html">查看我的地块 ${icon("arrow")}</a></div><div class="hero-art"><img src="assets/field-map.svg" alt="麦田地块示意插画，非真实地图" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0"><div class="hero-caption">${icon("leaf")}<span><strong>每一次观察，都是新的线索</strong><small>日期为线，地块为本</small></span></div></div></section><section class="stats-grid" aria-label="档案概况">${[
-        [
-          "我的地块",
-          Z.state.fields.length,
-          "块",
-          "已建立的本地档案",
-          "fields",
-          "",
-        ],
-        [
-          "记录面积",
-          Number(area.toFixed(2)),
-          "亩",
-          "按档案填写面积汇总",
-          "wheat",
-          "",
-        ],
-        [
-          "待跟踪任务",
-          pending.length,
-          "项",
-          "把观察变成下一步行动",
-          "calendar",
-          "amber",
-        ],
-        [
-          "生长记录",
-          Z.state.records.length,
-          "条",
-          "观察、农事与复查",
-          "history",
-          "",
-        ],
-      ]
-        .map(
-          ([label, num, unit, note, ic, cl]) =>
-            `<div class="stat"><div><div class="stat-label">${label}</div><div class="stat-value">${num}<span>${unit}</span></div><small>${note}</small></div><span class="stat-icon ${cl}">${icon(ic)}</span></div>`,
-        )
-        .join(
-          "",
-        )}</section><div class="dashboard-mid"><section class="panel"><div class="panel-head"><div><h2>下一步，关注这些事</h2><p>每一项任务，都有值得跟踪的原因</p></div><a class="text-link" href="tasks.html">全部任务 ${icon("arrow")}</a></div>${
-        pending.length
-          ? pending
-              .slice(0, 3)
-              .map((t) => taskRow(t))
-              .join("")
-          : Z.empty(
-              "这一轮任务已完成",
-              "可以查看地块记录，或为下一次观察安排任务。",
-              button("安排下一次观察", "plus", "new-task", "soft"),
-            )
-      }</section><section class="weather-card" aria-label="演示天气"><div class="weather-top"><span class="weather-location">${icon("pin")} 郑州 · 中牟</span>${badge("示例天气 · 非实时", "gray")}</div><div class="weather-main"><div><div class="weather-temp">18<small>°</small></div><p class="weather-desc">晴间多云 · 12° / 22°</p></div>${icon("sun", "weather-symbol")}</div><div class="weather-details"><span>${icon("wind")}东南风 2 级</span><span>${icon("drop")}示例湿度 62%</span></div><div class="weather-tip"><strong>观察小贴士</strong><br>拍摄时尽量保持相近光照与角度，让前后记录更容易比较。</div><div class="weather-bottom"><span>历史情境：2026.04.18 · 未连接天气接口</span><button class="text-link" data-local="weather-info">数据说明 ${icon("chevron")}</button></div></section></div><section><div class="section-heading"><h2>一块田，一份生长档案 <small>MY FIELDS</small></h2><a href="fields.html" class="text-link">查看全部 ${icon("arrow")}</a></div><div class="field-grid dashboard-fields">${Z.state.fields.slice(0, 3).map(fieldCard).join("") || Z.empty("先建立你的第一块田", "填写位置、品种和播种日期，从第一条记录开始。", button("建立档案", "plus", "new-field"))}</div><p class="demo-note">${icon("book")}初始地块、任务与照片用于历史情境演示；你新增的记录会单独标注为本地记录。</p></section><div class="overview-bottom"><section class="panel"><div class="panel-head"><div><h2>一季的生长，慢慢看见</h2><p>东坡示范田 · 2025—2026 种植季示例</p></div>${badge("生育期示意", "gray")}</div><div class="season-progress"><div class="growth-line">${["播种出苗", "分蘖越冬", "返青拔节", "孕穗抽穗", "扬花灌浆", "成熟收获"].map((t, i) => `<div class="growth-node ${i === 3 ? "current" : ""}"><i></i>${t}</div>`).join("")}</div><p>生育期需结合现场观察确认，日历日期不能替代实际判断。</p></div></section><section class="panel"><a class="quick-entry" href="diagnosis.html"><span class="entry-icon">${icon("chat")}</span><div><h3>田间有疑问，问问智麦</h3><p>上传图片或直接提问，梳理下一步</p></div>${icon("arrow")}</a><a class="quick-entry" href="compare.html"><span class="entry-icon gold">${icon("compare")}</span><div><h3>放在一起，看看有什么变化</h3><p>按日期对照照片与农事记录</p></div>${icon("arrow")}</a></section></div>`;
-  }
   function fields() {
     const fs = Z.state.fields.filter(
       (f) =>
@@ -130,8 +67,8 @@
     root.innerHTML =
       heading(
         "MY FIELDS",
-        "每一块田，都有自己的故事。",
-        "从播种到收获，沿着时间积累属于这块田的观察。",
+        "补充地块背景，让调查少问一步。",
+        "保存地区、品种和现场记录，作为病虫害案例的背景。",
         button("新建地块", "plus", "new-field"),
       ) +
       `<div class="fields-summary"><span><strong>${Z.state.fields.length}</strong> 块地已建档</span><span><strong>${Z.state.records.length}</strong> 条生长记录</span><span>仅此设备保存 · 可在档案内导出</span></div><div class="toolbar">${segment(["全部地块", "持续观察", "待复查", "待补记录"], view.fieldFilter, "fieldFilter")}<div class="filter-group"><label class="filter-search">${icon("search")}<input id="fieldSearch" placeholder="搜索地块、地区或品种" aria-label="搜索地块" value="${esc(view.fieldQuery)}"></label><select id="fieldSeason" aria-label="筛选种植季"><option>全部种植季</option>${[...new Set(Z.state.fields.map((f) => f.season))].map((s) => `<option ${view.fieldSeason === s ? "selected" : ""}>${esc(s)}</option>`).join("")}</select></div></div><div class="section-heading"><span class="result-count">共 ${fs.length} 块地块</span></div><div class="field-grid">${fs.map(fieldCard).join("")}${!fs.length ? Z.empty("没有找到符合条件的地块", "调整筛选条件，或建立一份新的地块档案。") : ""}<button class="add-field-card" data-action="new-field">${icon("plus")}<strong>记录一块新的麦田</strong><small>从这里开始，陪伴下一季生长</small></button></div><p class="demo-note">${icon("book")}示例地块有“演示档案”标记；封面图片仅为示意，不用于判断地块长势。</p>`;
@@ -154,7 +91,7 @@
     }
     const rs = Z.records(id),
       tasks = Z.state.tasks.filter((t) => t.fieldId === id && !t.done);
-    root.innerHTML = `<a href="fields.html" class="back-link">${icon("arrow")} 返回我的地块</a><div class="page-heading"><div><span class="eyebrow">FIELD JOURNAL · ${esc(f.season)}</span><h1>沿着时间，看见这块田的变化。</h1></div><div class="actions">${button("导出文字档案", "download", "none", "", 'data-local="export-field"')}${button("记录新观察", "plus", "new-record", "primary", `data-field="${esc(id)}"`)}</div></div><section class="field-detail-hero"><div class="field-detail-copy"><div class="actions">${badge(f.attention, tone(f))}${badge(f.demo ? "历史情境示例" : "本地地块", "gray")}</div><h1>${esc(f.name)}</h1><p class="field-location">${icon("pin")}${esc(f.location)}</p><div class="field-info"><span>${esc(f.area)} 亩</span><span>${esc(f.variety)}</span><span>${esc(f.stage)}</span><span>${esc(f.season)} 季</span></div></div><div class="field-detail-photo"><img src="${Z.safeImage(f.cover)}" alt="麦田封面示意图"><span class="image-disclaimer">封面示意图</span></div></section><div class="field-detail-tabs" role="group" aria-label="档案栏目">${["生长时间线", "农事记录", "档案信息"].map((t) => `<button class="${view.fieldTab === t ? "active" : ""}" aria-pressed="${view.fieldTab === t}" data-filter="fieldTab" data-value="${t}">${t}</button>`).join("")}</div>${
+    root.innerHTML = `<a href="fields.html" class="back-link">${icon("arrow")} 返回我的地块</a><div class="page-heading"><div><span class="eyebrow">FIELD JOURNAL · ${esc(f.season)}</span><h1>地块背景与现场记录。</h1></div><div class="actions">${button("导出文字档案", "download", "none", "", 'data-local="export-field"')}${button("记录新观察", "plus", "new-record", "primary", `data-field="${esc(id)}"`)}</div></div><section class="field-detail-hero"><div class="field-detail-copy"><div class="actions">${badge(f.attention, tone(f))}${badge(f.demo ? "历史情境示例" : "本地地块", "gray")}</div><h1>${esc(f.name)}</h1><p class="field-location">${icon("pin")}${esc(f.location)}</p><div class="field-info"><span>${esc(f.area)} 亩</span><span>${esc(f.variety)}</span><span>${esc(f.stage)}</span><span>${esc(f.season)} 季</span></div></div><div class="field-detail-photo"><img src="${Z.safeImage(f.cover)}" alt="麦田封面示意图"><span class="image-disclaimer">封面示意图</span></div></section><div class="field-detail-tabs" role="group" aria-label="档案栏目">${["生长时间线", "农事记录", "档案信息"].map((t) => `<button class="${view.fieldTab === t ? "active" : ""}" aria-pressed="${view.fieldTab === t}" data-filter="fieldTab" data-value="${t}">${t}</button>`).join("")}</div>${
       view.fieldTab === "档案信息"
         ? `<section class="panel info-panel"><div class="actions" style="justify-content:space-between"><h2>这块田的基础信息</h2><button class="btn small" data-local="edit-field">${icon("edit")} 编辑档案</button></div><dl class="detail-list"><dt>地块名称</dt><dd>${esc(f.name)}</dd><dt>所在地区</dt><dd>${esc(f.location)}</dd><dt>面积</dt><dd>${esc(f.area)} 亩</dd><dt>品种</dt><dd>${esc(f.variety)}</dd><dt>播种日期</dt><dd>${fmt(f.sowDate)}</dd><dt>种植季</dt><dd>${esc(f.season)}</dd><dt>生育期</dt><dd>${esc(f.stage)}</dd><dt>采样点与备注</dt><dd>${esc(f.note || "暂未填写")}</dd></dl><div class="notice">${icon("book")}<span>生育期及管理信息由档案记录提供，未通过现场自动监测确认。</span></div></section>`
         : `<div class="detail-columns"><section class="panel"><div class="panel-head"><div><h2>${view.fieldTab === "农事记录" ? "每一次操作，都是重要的背景" : "生长时间线"}</h2><p>${view.fieldTab === "农事记录" ? "记录实际发生的管理操作，供后续复查参考" : "观察、行动、复查，在时间里连成线"}</p></div><span class="result-count">${rs.filter((r) => view.fieldTab !== "农事记录" || r.type === "农事").length} 条记录</span></div>${view.fieldTab === "生长时间线" ? `<div style="padding:0 23px 10px">${segment(["全部", "观察", "农事", "复查"], view.recordType, "recordType")}</div>` : ""}<div class="timeline">${
@@ -367,7 +304,7 @@
     ]
       .map(
         ([t, text]) =>
-          `<section class="case-section"><h3>${t}</h3><div class="rich-text">${text ? md(text) : '<p class="muted">暂无独立内容，等待实际诊断结果。</p>'}</div></section>`,
+          `<section class="case-section"><h3>${t}</h3><div class="rich-text">${Z.mode === "live" && t !== "图片可见特征" ? '<p class="muted">此字段来自原有自由文本模型，尚未完成结构化来源与用药审核，不在这里展示为可执行方案。</p>' : text ? md(text) : '<p class="muted">暂无独立内容，等待实际诊断结果。</p>'}</div></section>`,
       )
       .join(
         "",
@@ -392,16 +329,15 @@
     });
   }
   function updateCounts() {
-    document.querySelector(".nav-count").textContent = Z.state.tasks.filter(
-      (t) => !t.done,
-    ).length;
-    document.querySelector(".notification-dot").hidden = !Z.state.tasks.some(
-      (t) => !t.done,
-    );
+    const count = Z.Care
+      ? Z.Care.pending().length
+      : Z.state.tasks.filter((t) => !t.done).length;
+    document.querySelector(".nav-count").textContent = count;
+    document.querySelector(".notification-dot").hidden = count === 0;
   }
   function render() {
     updateCounts();
-    if (page === "dashboard") dashboard();
+    if (Z.Care?.render(page, root, params)) return;
     if (page === "fields") fields();
     if (page === "field") fieldPage();
     if (page === "tasks") tasks();
@@ -576,7 +512,12 @@
     true,
   );
   render();
-  if (page === "history" && Z.mode === "live") loadHistory();
+  if (
+    page === "history" &&
+    params.get("source") === "backend" &&
+    Z.mode === "live"
+  )
+    loadHistory();
   Z.page = page;
   Z.root = root;
   Z.caseDetail = caseDetail;

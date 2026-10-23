@@ -528,7 +528,7 @@
   function settings() {
     modal(
       "选择体验方式",
-      `<p class="form-intro">演示模式可以完整体验页面，不会调用模型。连接后端后，智能诊断和历史案例使用实际接口；地块档案与任务仍仅在当前浏览器保存。</p><label class="radio-card"><input type="radio" name="mode" value="demo" ${mode === "demo" ? "checked" : ""}><span><strong>体验演示</strong><small>历史情境、示例回答均明确标注；可创建自己的本地档案。</small></span></label><label class="radio-card"><input type="radio" name="mode" value="live" ${mode === "live" ? "checked" : ""}><span><strong>连接现有后端</strong><small>使用真实图片识别、聊天与历史接口，保留失败与重试状态。</small></span></label><label class="mt">后端地址<input name="baseUrl" type="url" value="${esc(readSetting("zhimai.apiBase", "http://127.0.0.1:8000"))}" placeholder="http://127.0.0.1:8000"></label>`,
+      `<p class="form-intro">演示模式可以完整体验页面，不会调用模型。连接后端后，智能诊断和历史案例使用实际接口；新版案例、地块档案与任务仍仅在当前浏览器保存；真实结构化判断与登记核验尚未接入。</p><label class="radio-card"><input type="radio" name="mode" value="demo" ${mode === "demo" ? "checked" : ""}><span><strong>体验演示</strong><small>历史情境、示例回答均明确标注；可创建自己的本地档案。</small></span></label><label class="radio-card"><input type="radio" name="mode" value="live" ${mode === "live" ? "checked" : ""}><span><strong>连接现有后端</strong><small>使用真实图片识别、聊天与历史接口，保留失败与重试状态。</small></span></label><label class="mt">后端地址<input name="baseUrl" type="url" value="${esc(readSetting("zhimai.apiBase", "http://127.0.0.1:8000"))}" placeholder="http://127.0.0.1:8000"></label>`,
       (data) => {
         const url = new URL(data.get("baseUrl"));
         if (
@@ -591,30 +591,33 @@
     input.focus();
   }
   const pageInfo = {
-    dashboard: ["今日工作台", "把每一季的变化，变成有依据的行动。"],
-    fields: ["我的地块", "一块田，一份持续生长的档案。"],
-    field: ["地块生长档案", "沿着时间，看见变化。"],
-    diagnosis: ["智能诊断", "从一张照片，开始一次有依据的观察。"],
-    history: ["诊断历史", "让每一次判断都有迹可循。"],
-    tasks: ["跟踪任务", "让建议有后续，让观察有回音。"],
-    compare: ["生长对比", "把两次观察放在一起，认真看见变化。"],
+    dashboard: ["诊断工作台"],
+    fields: ["地块资料"],
+    field: ["地块背景"],
+    diagnosis: ["病虫害辅助诊断"],
+    history: ["案例与复查"],
+    medication: ["科学用药"],
+    case: ["案例详情"],
+    tasks: ["复查安排"],
+    compare: ["防治效果复查"],
   };
   function shell() {
     const page = document.body.dataset.page;
     const info = pageInfo[page] || pageInfo.dashboard;
-    const active = page === "field" ? "fields" : page;
+    const active = ["case", "tasks", "compare"].includes(page)
+      ? "history"
+      : page;
     const nav = [
-      ["dashboard", "home", "今日工作台", "index.html"],
-      ["fields", "fields", "我的地块", "fields.html"],
-      ["diagnosis", "chat", "智能诊断", "diagnosis.html"],
-      ["compare", "compare", "生长对比", "compare.html"],
-      ["tasks", "calendar", "跟踪任务", "tasks.html"],
-      ["history", "history", "诊断历史", "history.html"],
+      ["dashboard", "home", "诊断工作台", "index.html"],
+      ["medication", "book", "科学用药", "medication.html"],
+      ["diagnosis", "chat", "病虫害辅助诊断", "diagnosis.html"],
+      ["history", "history", "案例与复查", "history.html"],
     ];
     document.getElementById("app").innerHTML =
-      `<a href="#mainContent" class="skip-link">跳到主要内容</a><button class="sidebar-scrim" aria-label="关闭导航"></button><aside class="sidebar" id="sidebar"><a href="index.html" class="brand"><span class="brand-mark">${icon("wheat")}</span><span><b>智麦<span class="brand-dot">.</span></b><small>小麦全周期生长助手</small></span></a><div class="sidebar-label">我的农田工作空间</div><nav aria-label="主导航">${nav.map(([key, ic, title, url]) => `<a href="${url}" ${key === active ? 'aria-current="page"' : ""} class="nav-item ${key === active ? "active" : ""}">${icon(ic)}<span>${title}</span>${key === "tasks" ? `<span class="nav-count">${state.tasks.filter((t) => !t.done).length}</span>` : ""}</a>`).join("")}</nav><div class="sidebar-bottom"><div class="season-note">${icon("leaf")}<span>记录生长，陪伴每一季<small>从田间观察，到持续跟踪</small></span></div><button class="help-btn" data-action="help">${icon("help")} 使用指南 ${icon("arrow")}</button><div class="profile"><span class="avatar">麦</span><span><strong>我的种植空间</strong><small>本地体验 · 仅此设备保存</small></span><button class="icon-btn" aria-label="打开体验设置" data-action="settings">${icon("down")}</button></div></div></aside><div class="main-wrapper"><header class="topbar"><div class="topbar-left"><button class="icon-btn menu-toggle" aria-label="展开导航" aria-expanded="false">${icon("menu")}</button><span class="breadcrumb">我的工作空间 ${icon("chevron")} <strong>${info[0]}</strong></span></div><div class="topbar-actions"><button class="search-trigger" data-action="search">${icon("search")}<span>搜索地块、任务</span><kbd>⌘ K</kbd></button><button class="mode-pill ${mode === "demo" ? "demo" : "live"}" data-action="settings"><i></i>${mode === "demo" ? "演示模式" : "后端连接模式"}</button><button class="icon-btn notification-btn" aria-label="查看待完成任务" data-action="notifications">${icon("bell")}<span class="notification-dot" ${state.tasks.some((t) => !t.done) ? "" : "hidden"}></span></button><span class="top-avatar">麦</span></div></header><main id="mainContent" class="page-content" tabindex="-1"></main><footer class="page-footer"><span>智麦 ZHIMAI <i>·</i> 记录每一份生长</span><span>${mode === "demo" ? "演示情境与本地记录 · 非实时监测" : "地块与任务为本地记录 · 诊断与历史可连接后端"}</span></footer></div><dialog id="appDialog"></dialog><div id="toasts" class="toasts" aria-live="polite"></div>`;
+      `<a href="#mainContent" class="skip-link">跳到主要内容</a><button class="sidebar-scrim" aria-label="关闭导航"></button><aside class="sidebar" id="sidebar"><a href="index.html" class="brand"><span class="brand-mark">${icon("wheat")}</span><span><b>智麦<span class="brand-dot">.</span></b><small>冬小麦病虫害决策助手</small></span></a><div class="sidebar-label">病虫害辅助诊断与科学用药</div><nav aria-label="主导航">${nav.map(([key, ic, title, url]) => `<a href="${url}" ${key === active ? 'aria-current="page"' : ""} class="nav-item ${key === active ? "active" : ""}">${icon(ic)}<span>${title}</span>${key === "tasks" ? `<span class="nav-count">${state.tasks.filter((t) => !t.done).length}</span>` : ""}</a>`).join("")}</nav><div class="secondary-nav"><a href="fields.html">${icon("fields")} 地块资料</a><a href="tasks.html">${icon("calendar")} 复查安排 <span class="nav-count">${state.tasks.filter((t) => !t.done).length}</span></a></div><div class="sidebar-bottom"><div class="season-note">${icon("leaf")}<span>先查原因，再核对依据<small>辅助判断 · 标签核验 · 复查</small></span></div><button class="help-btn" data-action="help">${icon("help")} 使用指南 ${icon("arrow")}</button><div class="profile"><span class="avatar">麦</span><span><strong>我的种植空间</strong><small>本地体验 · 仅此设备保存</small></span><button class="icon-btn" aria-label="打开体验设置" data-action="settings">${icon("down")}</button></div></div></aside><div class="main-wrapper"><header class="topbar"><div class="topbar-left"><button class="icon-btn menu-toggle" aria-label="展开导航" aria-expanded="false">${icon("menu")}</button><span class="breadcrumb">我的工作空间 ${icon("chevron")} <strong>${info[0]}</strong></span></div><div class="topbar-actions"><button class="search-trigger" data-action="search">${icon("search")}<span>搜索地块、任务</span><kbd>⌘ K</kbd></button><button class="mode-pill ${mode === "demo" ? "demo" : "live"}" data-action="settings"><i></i>${mode === "demo" ? "演示模式" : "后端连接模式"}</button><button class="icon-btn notification-btn" aria-label="查看待完成任务" data-action="notifications">${icon("bell")}<span class="notification-dot" ${state.tasks.some((t) => !t.done) ? "" : "hidden"}></span></button><span class="top-avatar">麦</span></div></header><main id="mainContent" class="page-content" tabindex="-1"></main><footer class="page-footer"><span>智麦 ZHIMAI <i>·</i> 让每一步判断有据可循</span><span>${mode === "demo" ? "演示情境与本地记录 · 非实时监测" : "新版案例暂存本地 · 真实登记核验待接入"}</span></footer></div><dialog id="appDialog"></dialog><div id="toasts" class="toasts" aria-live="polite"></div>`;
     const d = document.getElementById("appDialog");
     d.addEventListener("close", () => {
+      if (d.open) return;
       closeHook?.();
       closeHook = null;
       lastFocus?.focus?.();
@@ -627,8 +630,8 @@
   }
   function help() {
     modal(
-      "从一块田，开始记录这一季",
-      `<div class="guide-step"><span>01</span><div><h3>建立地块档案</h3><p>记录位置、品种与播种日期。选定固定采样点，让后续照片更容易比较。</p></div></div><div class="guide-step"><span>02</span><div><h3>观察、提问，再决定下一步</h3><p>上传图片只进行识别。输入问题并点击发送后，才开始正式对话。演示回复不代表实际模型判断。</p></div></div><div class="guide-step"><span>03</span><div><h3>把建议变成可跟踪的行动</h3><p>创建复查任务，补充现场记录；将两次观察并排查看，记录变化与仍待确认的信息。</p></div></div><div class="notice">${icon("book")}<span>示例照片不代表同一地块连续实拍。演示天气、地块及回答均非实时数据；新建档案与任务仅在当前浏览器保存，建议定期导出。</span></div>`,
+      "从现场异常，到有依据的下一步",
+      `<div class="guide-step"><span>01</span><div><h3>先提交症状与现场资料</h3><p>选择图片只进行图片观察，确认提交后再进入调查；不清楚的信息保留为未知。</p></div></div><div class="guide-step"><span>02</span><div><h3>补充调查，核对处理条件</h3><p>疑似原因需要证据支持。登记信息匹配不代表已经需要施药；演示数据不会作为实际用药依据。</p></div></div><div class="guide-step"><span>03</span><div><h3>照实记录措施，再看后续变化</h3><p>确认复查日期，保存现场反馈。结束跟踪仅表示归档，不等于病虫害治愈。</p></div></div><div class="notice">${icon("book")}<span>新增案例暂存本浏览器。结构化诊断、真实登记核验及后台提醒尚待新接口；原有图片与聊天接口仍可连接。</span></div>`,
       null,
       { cancel: "开始体验" },
     );
@@ -645,6 +648,10 @@
     if (a === "new-task") newTask(el.dataset.field);
     if (a === "task-detail") taskDetail(el.dataset.id);
     if (a === "toggle-task") toggleTask(el.dataset.id);
+    if (a === "notifications" && window.ZM.Care) {
+      window.ZM.Care.notifications();
+      return;
+    }
     if (a === "notifications") {
       const pending = state.tasks.filter((t) => !t.done);
       modal(
