@@ -20,13 +20,13 @@
     search: "",
   };
   document.getElementById("app").innerHTML =
-    `<a class="skip-link" href="#main">跳到主要内容</a><header class="site-header"><div class="header-inner"><a class="brand" href="index.html" aria-label="智麦首页"><span>${icon("wheat")}</span><b>智麦</b><small>小麦的事，一起看看</small></a><nav aria-label="主导航"><a class="${!isHistory ? "active" : ""}" ${!isHistory ? 'aria-current="page"' : ""} href="index.html">问智麦</a><a class="${isHistory ? "active" : ""}" ${isHistory ? 'aria-current="page"' : ""} href="history.html">我的记录</a></nav><button class="icon-button help-button" data-action="help" aria-label="怎么使用智麦">${icon("help")}</button></div></header><main id="main" tabindex="-1"></main><footer class="site-footer"><span>冬小麦病虫害辅助诊断 · 用药核对 · 持续复查</span><button data-action="scope">交互演示，非真实诊断</button></footer><input id="photoInput" class="sr-only" tabindex="-1" type="file" accept="image/jpeg,image/png,image/webp"><dialog id="dialog"></dialog><div id="toasts" aria-live="polite"></div>`;
+    `<a class="skip-link" href="#main">跳到主要内容</a><header class="site-header"><div class="header-inner"><a class="brand" href="index.html" aria-label="智麦首页"><span>${icon("wheat")}</span><b>智麦</b><small>小麦的事，一起看看</small></a><nav aria-label="主导航"><a class="${!isHistory ? "active" : ""}" ${!isHistory ? 'aria-current="page"' : ""} href="index.html">问智麦</a><a class="${isHistory ? "active" : ""}" ${isHistory ? 'aria-current="page"' : ""} href="history.html">我的记录</a></nav><button class="icon-button help-button" data-action="help" aria-label="怎么使用智麦">${icon("help")}</button></div></header><main id="main" tabindex="-1"></main><footer class="site-footer"><span>冬小麦病虫害辅助诊断 · 用药核对 · 持续复查</span><button data-action="scope">功能范围与数据说明</button></footer><input id="photoInput" class="sr-only" tabindex="-1" type="file" accept="image/jpeg,image/png,image/webp"><dialog id="dialog"></dialog><div id="toasts" aria-live="polite"></div>`;
   const root = document.getElementById("main");
   function photoHTML(p, caption = "") {
     return `<figure class="saved-photo"><img data-photo="${esc(p.id)}" alt="${esc(p.name || "现场照片")}" loading="lazy">${caption ? `<figcaption>${esc(caption)}</figcaption>` : ""}</figure>`;
   }
   function composer() {
-    return `<div class="composer ${!ui.record ? "home-composer" : ""}"><div class="attachment" ${ui.photo ? "" : "hidden"}>${ui.photo ? `<img src="${ui.photoUrl}" alt="待发送的照片"><span><strong>${esc(ui.photo.name)}</strong><small>已选好，还没发送</small></span><button class="icon-button" data-action="remove-photo" aria-label="移除待发送照片" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${icon("close")}</button>` : ""}</div>${ui.photoLoading ? '<p class="reading-photo"><span class="spinner"></span>正在读取照片…</p>' : ""}<p class="error" id="fileError" role="alert">${esc(ui.fileError)}</p><form id="messageForm"><label class="sr-only" for="messageInput">描述你看到的情况</label><textarea id="messageInput" rows="2" maxlength="4000" placeholder="例如：叶子发黄，最近越来越多…" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${esc(ui.draft)}</textarea><div class="composer-bottom"><button type="button" class="attach-button" data-action="photo" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${icon("camera")} ${ui.photo ? "换张照片" : "添加照片"}</button><button type="submit" id="sendButton" class="button primary" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${ui.busy ? '<span class="spinner"></span>正在整理示例' : "发给智麦 " + icon("arrow")}</button></div></form><p class="error" id="sendError" role="alert">${esc(ui.error)}</p>${ui.error ? '<button class="text-button" data-action="retry">重新发送</button>' : ""}<div class="composer-caption"><span>不必先填表，不知道的可以直接说</span><span>Shift + Enter 换行</span></div></div>`;
+    return `<div class="composer ${!ui.record ? "home-composer" : ""}"><div class="attachment" ${ui.photo ? "" : "hidden"}>${ui.photo ? `<img src="${ui.photoUrl}" alt="待发送的照片"><span><strong>${esc(ui.photo.name)}</strong><small>已选好，还没发送</small></span><button class="icon-button" data-action="remove-photo" aria-label="移除待发送照片" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${icon("close")}</button>` : ""}</div>${ui.photoLoading ? '<p class="reading-photo"><span class="spinner"></span>正在读取照片…</p>' : ""}<p class="error" id="fileError" role="alert">${esc(ui.fileError)}</p><form id="messageForm"><label class="sr-only" for="messageInput">描述你看到的情况</label><textarea id="messageInput" rows="2" maxlength="4000" placeholder="例如：叶子发黄，最近越来越多…" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${esc(ui.draft)}</textarea><div class="composer-bottom"><button type="button" class="attach-button" data-action="photo" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${icon("camera")} ${ui.photo ? "换张照片" : "添加照片"}</button><button type="submit" id="sendButton" class="button primary" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${ui.busy ? '<span class="spinner"></span>正在处理' : "发给智麦 " + icon("arrow")}</button></div></form><p class="error" id="sendError" role="alert">${esc(ui.error)}</p>${ui.error ? '<button class="text-button" data-action="retry">重新发送</button><button class="text-button" data-action="medicine">重新核对登记号</button>' : ""}<div class="composer-caption"><span>文字用于检索资料，照片仅存本机</span><span>Shift + Enter 换行</span></div></div>`;
   }
   function home() {
     const last = S.records().find((r) => !r.archived);
@@ -38,8 +38,56 @@
     if (m.actions?.length === 1 && m.actions[0] === "summary")
       return `<div class="answer-actions">${actionButton("summary", "下载问题摘要", "download")}</div>`;
     if (m.type === "check")
-      return `<div class="answer-actions">${actionButton("label", "拍清标签", "camera", true)}${actionButton("summary", "请农技人员帮看", "download")}</div>`;
+      return `<div class="answer-actions">${actionButton("label", "拍清标签", "camera", true)}${actionButton("medicine", "重新核对登记号", "book")}${actionButton("summary", "请农技人员帮看", "download")}</div>`;
     return `<div class="answer-actions">${actionButton("photo", "补拍一张照片", "camera", true)}${actionButton("medicine", "核对手里的药", "book")}</div>`;
+  }
+  function knowledgeHTML(k) {
+    if (!k || !k.results?.length) return "";
+    return `<details class="explanation knowledge-evidence"><summary>参考了哪些资料？</summary><p>${esc(k.notice)}</p>${k.results.map((r) => `<div class="knowledge-quote"><strong>${esc(r.topic)} · ${esc(r.paragraph)}</strong><p>${esc(r.quote)}</p><small>《${esc(r.source?.title || "上传知识文档")}》 · 待农技审校</small></div>`).join("")}<p>检索时间：${esc(k.retrieved_at || "未记录")}；排序仅代表文字相关，不代表诊断概率。</p></details>`;
+  }
+  function verificationHTML(v) {
+    if (!v) return "";
+    const source = v.source;
+    let link = "";
+    try {
+      const url = new URL(source?.url);
+      if (
+        url.protocol === "https:" &&
+        [
+          "chinapesticide.org.cn",
+          "www.chinapesticide.org.cn",
+          "icama.org.cn",
+          "www.icama.org.cn",
+          "www.moa.gov.cn",
+        ].includes(url.hostname) &&
+        !url.username &&
+        !url.password
+      )
+        link = `<a href="${esc(url.href)}" target="_blank" rel="noopener noreferrer">打开来源核实</a>`;
+    } catch (_) {}
+    return `<details class="explanation"><summary>查询来源与时间</summary><p>查询时间：${esc(v.checked_at)}</p>${source ? `<p>${esc(source.title)} · 资料复核：${esc(source.reviewed_on)}</p><p>标签版本：${esc(source.label_version)} · 整理人：${esc(source.reviewer)}</p>${link}` : "<p>没有可展示的登记来源，尚未完成核验。</p>"}</details>`;
+  }
+  function labelReferenceHTML(v) {
+    const label = v?.label_reference;
+    if (!label) return "";
+    let link = "";
+    try {
+      const url = new URL(label.url);
+      if (
+        url.protocol === "https:" &&
+        [
+          "www.moa.gov.cn",
+          "www.icama.org.cn",
+          "icama.org.cn",
+          "www.chinapesticide.org.cn",
+          "chinapesticide.org.cn",
+        ].includes(url.hostname) &&
+        !url.username &&
+        !url.password
+      )
+        link = `<a href="${esc(url.href)}" target="_blank" rel="noopener noreferrer">打开公告版完整标签</a>`;
+    } catch (_) {}
+    return `<details class="explanation label-reference"><summary>核对标签限制</summary><p>${esc(label.note)}</p>${label.precautions_raw ? `<p>${esc(label.precautions_raw)}</p>` : ""}<p>版本：${esc(label.version)}；定位：${esc(label.locator || "见来源附件")}</p>${link}</details>`;
   }
   function messageHTML(m, last) {
     const photos = ui.record?.photos || [];
@@ -48,21 +96,21 @@
       return `<article class="message user"><div class="user-bubble">${p ? photoHTML(p) : ""}${m.text ? `<p>${esc(m.text)}</p>` : ""}</div><span class="user-avatar">我</span></article>`;
     let content = "";
     if (m.type === "question")
-      content = `<p class="question-text">${esc(m.text)}</p>${m.hint ? `<p class="message-hint">${esc(m.hint)}</p>` : ""}${last && m.choices ? `<div class="choices" aria-label="选择回答">${m.choices.map((t) => `<button data-action="answer" data-text="${esc(t)}" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${esc(t)}</button>`).join("")}</div>` : ""}`;
+      content = `<p class="question-text">${esc(m.text)}</p>${m.hint ? `<p class="message-hint">${esc(m.hint)}</p>` : ""}${knowledgeHTML(m.knowledge)}${last && m.choices ? `<div class="choices" aria-label="选择回答">${m.choices.map((t) => `<button data-action="answer" data-text="${esc(t)}" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${esc(t)}</button>`).join("")}</div>` : ""}`;
     else if (["result", "check", "followup-result"].includes(m.type)) {
       const before = photos.find((p) => p.id === m.beforeId),
         after = photos.find((p) => p.id === m.afterId);
-      content = `<section class="answer-card ${m.tone === "danger" ? "danger" : ""}"><span class="answer-source">${m.type === "check" ? "登记核对示例" : "示例回复 · 未识别实际图片"}</span><h2>${esc(m.heading)}</h2><p>${esc(m.summary)}</p>${m.checks?.length ? `<dl class="label-facts">${m.checks.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>` : ""}${m.now ? `<div class="next-step"><span>${icon("arrow")} 现在可以这样做</span><p>${esc(m.now)}</p></div>` : ""}${before && after && before.id !== after.id ? `<div class="photo-pair">${photoHTML(before, "上次记录 · " + day(before.date))}${photoHTML(after, "本次补充 · " + day(after.date))}</div><p class="message-hint">位置、光照不同会影响比较，照片不能单独证明药效。</p>` : ""}${m.medicine ? `<p class="medicine-note">${icon("book")}${esc(m.medicine)}</p>` : ""}${m.explanation ? `<details class="explanation"><summary>为什么这样说？</summary><p>${esc(m.explanation)}</p></details>` : ""}${last ? resultActions(m) : ""}</section>`;
+      content = `<section class="answer-card ${m.tone === "danger" ? "danger" : ""}"><span class="answer-source">${esc(m.sourceLabel || (m.type === "check" ? "登记核对示例" : "示例回复 · 未识别实际图片"))}</span><h2>${esc(m.heading)}</h2><p>${esc(m.summary)}</p>${m.checks?.length ? `<dl class="label-facts">${m.checks.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>` : ""}${m.now ? `<div class="next-step"><span>${icon("arrow")} 现在可以这样做</span><p>${esc(m.now)}</p></div>` : ""}${before && after && before.id !== after.id ? `<div class="photo-pair">${photoHTML(before, "上次记录 · " + day(before.date))}${photoHTML(after, "本次补充 · " + day(after.date))}</div><p class="message-hint">位置、光照不同会影响比较，照片不能单独证明药效。</p>` : ""}${m.medicine ? `<p class="medicine-note">${icon("book")}${esc(m.medicine)}</p>` : ""}${m.explanation ? `<details class="explanation"><summary>为什么这样说？</summary><p>${esc(m.explanation)}</p></details>` : ""}${labelReferenceHTML(m.verification)}${verificationHTML(m.verification)}${knowledgeHTML(m.knowledge)}${last ? resultActions(m) : ""}</section>`;
     } else if (m.type === "legacy") {
       content = `<p>${esc(m.text)}</p><button class="text-button" data-action="old-detail">查看之前的现场记录 ${icon("chevron")}</button>${last ? `<div class="answer-actions">${actionButton("followup", "带新照片来复查", "camera", true)}${actionButton("medicine", "核对手里的药", "book")}</div>` : ""}`;
     } else
       content = `<p>${esc(m.text)}</p>${last ? `<div class="answer-actions">${actionButton("followup", "继续复查", "camera")}${actionButton("summary", "下载问题摘要", "download")}</div>` : ""}`;
-    return `<article class="message assistant"><span class="assistant-avatar">${icon("wheat")}</span><div class="assistant-content"><span class="speaker">智麦 <i>·</i> ${ui.record.demo ? "交互演示" : "本地记录"}</span>${content}</div></article>`;
+    return `<article class="message assistant"><span class="assistant-avatar">${icon("wheat")}</span><div class="assistant-content"><span class="speaker">智麦 <i>·</i> ${m.verification ? "登记资料核对" : m.knowledge?.status === "found" ? "知识库参考" : ui.record.demo ? "交互演示" : "本地记录"}</span>${content}</div></article>`;
   }
   function conversation() {
     const t = ui.record,
       last = t.messages.filter((m) => m.role === "assistant").at(-1)?.id;
-    return `<section class="thread-heading"><div><a class="back-link" href="history.html">${icon("back")} 我的记录</a><h1>${esc(t.title)}</h1><p>${day(t.createdAt)} · ${t.archived ? "这次跟踪已结束" : "这次的问题，会接着记"}${t.demo ? " · 演示过程" : ""}</p></div><button class="icon-button" data-action="more" aria-label="这条记录的更多操作">${icon("more")}</button></section><section class="conversation" aria-label="问题与回答"><div class="messages" role="log" aria-live="polite">${t.messages.map((m) => messageHTML(m, m.id === last)).join("")}${ui.busy ? `<div class="thinking"><span class="spinner"></span>正在整理演示回复…</div>` : ""}</div>${t.followupDate ? `<div class="followup-date">${icon("clock")}你计划在 ${day(t.followupDate)} 再来看看 <small>日期已保存，暂不推送通知</small></div>` : ""}${t.archived ? `<div class="closed-record">这次跟踪已结束。<button class="text-button" data-action="reopen">继续跟踪</button></div>` : `<div class="followup-tools"><button data-action="action">${icon("check")}记下我做了什么</button><button data-action="schedule">${icon("clock")}约个时间复查</button></div>${composer()}`}<div id="threadEnd"></div></section>`;
+    return `<section class="thread-heading"><div><a class="back-link" href="history.html">${icon("back")} 我的记录</a><h1>${esc(t.title)}</h1><p>${day(t.createdAt)} · ${t.archived ? "这次跟踪已结束" : "这次的问题，会接着记"}${t.demo ? " · 演示过程" : ""}</p></div><button class="icon-button" data-action="more" aria-label="这条记录的更多操作">${icon("more")}</button></section><section class="conversation" aria-label="问题与回答"><div class="messages" role="log" aria-live="polite">${t.messages.map((m) => messageHTML(m, m.id === last)).join("")}${ui.busy ? `<div class="thinking"><span class="spinner"></span>正在处理，请稍候…</div>` : ""}</div>${t.followupDate ? `<div class="followup-date">${icon("clock")}你计划在 ${day(t.followupDate)} 再来看看 <small>日期已保存，暂不推送通知</small></div>` : ""}${t.archived ? `<div class="closed-record">这次跟踪已结束。<button class="text-button" data-action="reopen">继续跟踪</button></div>` : `<div class="followup-tools"><button data-action="action">${icon("check")}记下我做了什么</button><button data-action="schedule">${icon("clock")}约个时间复查</button></div>${composer()}`}<div id="threadEnd"></div></section>`;
   }
   function recordState(t) {
     if (t.archived) return "已结束";
@@ -221,6 +269,7 @@
       document.getElementById("messageInput")?.focus();
       return;
     }
+    ui.retryChoice = typeof choice === "string" ? choice : undefined;
     ui.busy = true;
     ui.error = "";
     render({ scroll: Boolean(ui.record) });
@@ -345,6 +394,20 @@
       record.facts?.registration
         ? `待核对登记号：${record.facts.registration}；防治对象：${record.facts.target || "未确认"}`
         : "",
+      ...record.messages
+        .filter((m) => m.verification)
+        .map((m) => {
+          const v = m.verification;
+          return `登记快照核对：${v.registration_number} / ${v.crop} / ${v.target}\n${v.heading}\n${v.summary}\n查询：${v.checked_at}\n来源：${v.source?.url || "资料不可用"}\n资料复核：${v.source?.reviewed_on || "无"}\n判断：${v.use_decision || "未确认"}\n下一步：${(v.next_steps || []).join("；")}\n标签来源：${v.label_reference?.url || "未提供"}\n${v.explanation}`;
+        }),
+      ...record.messages
+        .filter((m) => m.knowledge?.results?.length)
+        .flatMap((m) =>
+          m.knowledge.results.map(
+            (r) =>
+              `知识参考（待审校）：${r.topic} / ${r.paragraph} / ${r.source?.title}\n${r.quote}\n文档SHA256：${r.source?.docx_sha256 || "未记录"}`,
+          ),
+        ),
       ...record.actions.map((a) => `实际处理 ${a.date}：${a.note}`),
       ...record.followups.map(
         (f) => `复查 ${f.date}：${f.outcome} ${f.note || ""}`,
@@ -385,8 +448,8 @@
   }
   function scope() {
     U.modal(
-      "这是可操作的前端演示",
-      `<p>你可以拍照、一步步回答、核对演示登记号，再保存处理和复查记录。</p><p>当前没有调用真实图像识别、标签 OCR、登记查询或后台提醒。示例回复不用于实际病虫害诊断或施药。</p><details class="demo-examples"><summary>体验药品核对示例</summary><p>以下都是虚构编号，不对应真实产品。</p><button class="button secondary" data-action="example-drug" data-number="DEMO-WHEAT-001">看一个字段相符的例子</button><button class="button secondary" data-action="example-drug" data-number="DEMO-MISMATCH-001">看一个不匹配的例子</button></details><p class="dialog-note">记录和照片仅在本机保存。更换设备或清理浏览器数据可能导致无法读取；建议下载重要记录的文字摘要。</p>`,
+      "功能范围与数据说明",
+      `<p>你可以拍照、一步步回答、核对演示登记号，再保存处理和复查记录。</p><p>症状文字会检索你上传的《小麦知识库最新版》，只取观察特征并补问，资料待农技审校，不代表确诊。未调用图像识别、标签 OCR 或后台提醒。真实格式的登记号会核对内置的20条官方公告记录。记录仅有1条小麦赤霉病用途，其他作物与原药、母药用于排除核对。当前登记状态及到期日尚未核实，不把公告范围相符当成现在可以施药；不展示未经核实的剂量。它不是官方实时查询。DEMO- 编号仅作虚构示例，不发送查询。结果不能作为实际施药依据。</p><details class="demo-examples"><summary>体验药品核对示例</summary><p>以下都是虚构编号，不对应真实产品。</p><button class="button secondary" data-action="example-drug" data-number="DEMO-WHEAT-001">看一个字段相符的例子</button><button class="button secondary" data-action="example-drug" data-number="DEMO-MISMATCH-001">看一个不匹配的例子</button></details><p class="dialog-note">记录和照片仅在本机保存。更换设备或清理浏览器数据可能导致无法读取；建议下载重要记录的文字摘要。</p>`,
     );
   }
   function oldDetail() {
@@ -411,7 +474,7 @@
     }
     if (action === "quick") send(b.dataset.text);
     if (action === "answer") send(b.dataset.text);
-    if (action === "retry") send();
+    if (action === "retry") send(ui.retryChoice);
     if (action === "medicine") startMedicine();
     if (action === "label") startMedicine(true);
     if (action === "followup") startFollowup(ui.record, true);

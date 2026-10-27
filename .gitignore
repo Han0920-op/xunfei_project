@@ -1,0 +1,4 @@
+# Local Python environment; backend-specific data exclusions live in back_end.
+.venv/
+__pycache__/
+*.pyc

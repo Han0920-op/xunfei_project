@@ -1,4 +1,4 @@
-"""Farmer frontend regression tests. No backend or external model requests."""
+"""Farmer frontend regression tests. Lookup HTTP boundaries are mocked; no models."""
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -63,6 +63,95 @@ class FarmerFrontendTests(unittest.TestCase):
         self.send(number)
         self.page.get_by_role('button',name=target,exact=True).click()
         expect(self.page.locator('.answer-card')).to_be_visible()
+
+    def mock_lookup(self, status='source_unavailable'):
+        payload = {
+            'status': status, 'heading': '登记资料暂不可用',
+            'summary': '请核对官方登记信息及有效标签。', 'checks': [],
+            'source': None, 'checked_at': '2026-10-26T10:00:00+08:00',
+            'explanation': '人工核验快照，不是官方实时查询。',
+            'registration_number': 'PD202600001', 'crop': '小麦', 'target': '白粉病',
+        }
+        self.page.route('**/api/pesticides/check', lambda r: r.fulfill(json=payload))
+        return payload
+
+    def test_real_check_sends_only_confirmed_text_and_keeps_source(self):
+        self.mock_lookup()
+        self.medicine('PD202600001')
+        expect(self.page.locator('.answer-source')).to_contain_text('非官方实时查询')
+        self.page.get_by_text('查询来源与时间',exact=True).click()
+        expect(self.page.locator('.answer-card')).to_contain_text('没有可展示的登记来源')
+        self.assertEqual(self.page.evaluate('FarmerStore.records()[0].messages.at(-1).verification.status'), 'source_unavailable')
+        self.page.reload()
+        expect(self.page.locator('.answer-source')).to_contain_text('人工核验登记快照')
+
+    def test_network_failure_preserves_target_and_retry(self):
+        self.page.route('**/api/pesticides/check', lambda r: r.abort())
+        self.go('index.html?intent=medicine')
+        self.send('PD202600001')
+        self.page.get_by_role('button',name='白粉病',exact=True).click()
+        expect(self.page.locator('#sendError')).to_contain_text('连接不上')
+        self.assertEqual(self.page.evaluate('FarmerStore.records()[0].step'), 'target')
+        self.page.unroute('**/api/pesticides/check')
+        self.mock_lookup()
+        self.page.get_by_role('button',name='重新发送',exact=True).click()
+        expect(self.page.locator('.answer-card')).to_be_visible()
+        self.assertEqual(self.page.evaluate('FarmerStore.records()[0].facts.target'), '白粉病')
+
+    def test_invalid_registration_stays_at_number_without_network(self):
+        self.go('index.html?intent=medicine')
+        self.send('农药生产许可证123')
+        expect(self.page.locator('.question-text').last).to_contain_text('格式还不完整')
+        self.assertEqual(self.page.evaluate('FarmerStore.records()[0].step'), 'number')
+        self.assertFalse(any('/api/pesticides/' in u for u in self.requests))
+
+    def test_source_links_escape_untrusted_content(self):
+        payload = self.mock_lookup('fields_match')
+        payload.update(heading='字段相符', source={
+            'url': 'javascript:alert(1)', 'title': '<img src=x onerror=alert(1)>',
+            'reviewed_on': '2026-10-26', 'reviewer': '测试', 'label_version': '测试版本',
+        })
+        self.medicine('PD202600001')
+        self.page.get_by_text('查询来源与时间',exact=True).click()
+        expect(self.page.locator('.explanation a')).to_have_count(0)
+        expect(self.page.locator('.answer-card img')).to_have_count(0)
+        expect(self.page.locator('.answer-card')).to_contain_text('<img src=x')
+
+    def test_knowledge_followup_citation_and_same_record(self):
+        payload = {
+            'status': 'found', 'next_question': '叶片白粉里有小黑点吗？',
+            'choices': ['看到了', '没看到', '还没看清'],
+            'notice': '用户上传资料，待农技审校，不能确诊。',
+            'retrieved_at': '2026-10-27T12:00:00+08:00',
+            'results': [{'topic': '小麦白粉病', 'paragraph': 'P0038',
+                         'quote': '叶片表面覆盖白色粉状物，后期粉层变灰并出现小黑点。',
+                         'source': {'title': '小麦知识库最新版.docx', 'docx_sha256': 'test'}}],
+        }
+        bodies = []
+        def lookup(route):
+            bodies.append(route.request.post_data_json)
+            route.fulfill(json=payload)
+        self.page.route('**/api/knowledge/assist', lookup)
+        self.go()
+        self.send('叶片上有白色粉状物')
+        self.page.get_by_role('button',name='局部一片',exact=True).click()
+        self.page.get_by_role('button',name='不清楚',exact=True).click()
+        expect(self.page.locator('.question-text').last).to_contain_text('小黑点')
+        self.assertEqual(set(bodies[0]), {'description', 'distribution', 'stage'})
+        self.page.get_by_role('button',name='没看到',exact=True).click()
+        expect(self.page.locator('.answer-card')).to_contain_text('先不要按相似病名判断')
+        self.page.locator('.answer-card').get_by_text('参考了哪些资料？', exact=True).click()
+        expect(self.page.locator('.answer-card .knowledge-evidence')).to_contain_text('P0038')
+        expect(self.page.locator('.answer-card .knowledge-evidence')).to_contain_text('待农技审校')
+        self.assertEqual(self.page.evaluate('FarmerStore.records().length'), 1)
+        self.page.reload()
+        expect(self.page.locator('.answer-card')).to_contain_text('不能确定病因')
+
+    def test_crop_drug_injury_is_not_personal_poisoning(self):
+        self.go()
+        self.send('麦苗打药后像中毒一样，叶片扭曲')
+        expect(self.page.get_by_role('button',name='局部一片',exact=True)).to_be_visible()
+        expect(self.page.locator('.answer-card')).to_have_count(0)
 
     def test_home_has_two_navigation_links_and_no_setup_form(self):
         self.go()
@@ -135,8 +224,9 @@ class FarmerFrontendTests(unittest.TestCase):
         self.send('PD202600001')
         expect(self.page.get_by_role('button',name='还没确定',exact=True)).to_be_visible()
         self.assertEqual(self.page.evaluate('FarmerStore.records()[0].facts.registration'),'PD202600001')
+        self.mock_lookup()
         self.page.get_by_role('button',name='还没确定',exact=True).click()
-        expect(self.page.locator('.answer-card')).to_contain_text('登记信息还没核实')
+        expect(self.page.locator('.answer-card')).to_contain_text('登记资料暂不可用')
 
     def test_medicine_stays_in_same_conversation(self):
         self.diagnosis()
@@ -144,11 +234,11 @@ class FarmerFrontendTests(unittest.TestCase):
         self.page.get_by_role('button',name='核对手里的药',exact=True).click()
         expect(self.page.locator('.question-text').last).to_contain_text('登记证号')
         self.assertEqual(self.page.url,original_url)
-        self.send('PD-UNVERIFIED-123')
+        self.send('DEMO-INCOMPLETE-001')
         self.page.get_by_role('button',name='还没确定',exact=True).click()
-        expect(self.page.locator('.answer-card').last).to_contain_text('登记信息还没核实')
+        expect(self.page.locator('.answer-card').last).to_contain_text('缺少关键信息')
         self.assertEqual(self.page.evaluate('FarmerStore.records().length'),1)
-        self.assertFalse(any('/api/' in u for u in self.requests))
+        self.assertFalse(any('/api/pesticides/' in u for u in self.requests))
 
     def test_registration_examples_not_real_recommendations(self):
         self.medicine()

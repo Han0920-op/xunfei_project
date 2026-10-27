@@ -1,0 +1,846 @@
+{
+  "schema": "pesticide_registration_research_v1",
+  "research_only": true,
+  "collected_at": "2026-10-27T19:46:07.464500+08:00",
+  "scope": "农业农村部第880、910、1019号公告公开登记信息与核准标签，共20个登记号；其中小麦用途1个，非小麦制剂10个，原药或母药9个。",
+  "limitations": [
+    "公告批准事实与当前登记有效状态分开。",
+    "登记有效期未列明，不能由质量保证期或登记号年份推算。",
+    "标签用量仅原文摘录，不是当前施药建议。",
+    "未从其他作物白粉病登记推断小麦用途。",
+    "本批未核实小麦白粉病、条锈病、蚜虫产品；不表示这些对象无登记。",
+    "未自动导入生产用登记库或更改项目配置。"
+  ],
+  "records": [
+    {
+      "registration_number": "PD20250010",
+      "product_name": "贝莱斯芽孢杆菌C17271",
+      "holder": "浙江赛瑞可细胞技术有限公司",
+      "formulation": "可湿性粉剂",
+      "composition": "贝莱斯芽孢杆菌C172715亿CFU/克",
+      "toxicity_in_registration_table": "微毒",
+      "product_category_in_registration_table": "杀菌剂",
+      "technical_material": false,
+      "uses": [
+        {
+          "crop": "小麦",
+          "target": "赤霉病",
+          "label_dose_raw": "150-200克/亩",
+          "application_method_raw": "喷雾"
+        }
+      ],
+      "current_registration_status": "unknown",
+      "registration_valid_until": null,
+      "status_note": "已核对公告及核准标签，未连接当前登记库；登记当前有效性、撤销、延续及变更尚未复核。",
+      "announcement_date": "2025-02-06",
+      "approval_fact_verified_on": "2026-10-27",
+      "label_requirements_raw": "1.小麦扬花初期首次施药，小麦赤霉病发病前或零星发病时，施药间隔7天左右，可喷雾施药2次。兑水量30—50公斤/亩。2.大风天或下雨前后，请勿施药。",
+      "label_precautions_raw": "1.本品不可和碱性物质（波尔多液、石硫合剂等）混用。2.农药包装废弃物不得随意丢弃或自行处理，及时交回农药经营者或农药包装废弃物回收站；禁止在河塘等水体中清洗施药器具，施药后剩余药液不得随意倾倒。水产养殖区、河塘等水体及附近禁用。3.本品对眼睛有强刺激性。使用时应穿戴防护服、手套、口罩、护目镜等，避免吸入药液；使用中不可吸烟、饮水及吃东西，使用后及时用大量清水和肥皂清洗手、脸等暴露部位皮肤并更换衣物。4.用过的容器应妥善处理，不得挪作他用，也不可随意丢弃。5.禁止儿童、孕妇及哺乳期的妇女接触。过敏者禁用，使用中有任何不良反应请及时就医。",
+      "label_quality_guarantee_raw": "1年",
+      "safe_interval_raw": null,
+      "sources": {
+        "announcement_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/t20251118_6478977.htm",
+        "registration_table_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118315185644382.xls",
+        "label_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118315186269661.doc",
+        "table_sha256": "94d0b0777880a2c38a9c652291c70cb604e1fb3f55c1b8dc6bd146300af96a36",
+        "label_sha256": "979e57befad1cbef96808b21e4223d2fc16d231ade5031b03119f1b02e81cfda",
+        "table_sheet": "新农药产品登记信息",
+        "table_rows": [
+          13
+        ],
+        "label_locator": "登记证号：PD20250010",
+        "label_version": "随第880号公告公布的核准标签；未核对后续版本"
+      },
+      "safe_interval_note": "所读取标签未明确单列安全间隔期，留空，不代表0天；需结合当前有效标签复核。",
+      "review_status": "official_publication_transcribed_pending_agronomic_and_current_registry_review"
+    },
+    {
+      "registration_number": "PD20250006",
+      "product_name": "哈茨木霉菌TH7",
+      "holder": "湖南慕恩生物科技有限公司",
+      "formulation": "可分散油悬浮剂",
+      "composition": "哈茨木霉菌TH71亿CFU/毫升",
+      "toxicity_in_registration_table": "微毒",
+      "product_category_in_registration_table": "杀菌剂",
+      "technical_material": false,
+      "uses": [
+        {
+          "crop": "番茄",
+          "target": "灰霉病",
+          "label_dose_raw": "100-200毫升/亩",
+          "application_method_raw": "喷雾"
+        }
+      ],
+      "current_registration_status": "unknown",
+      "registration_valid_until": null,
+      "status_note": "已核对公告及核准标签，未连接当前登记库；登记当前有效性、撤销、延续及变更尚未复核。",
+      "announcement_date": "2025-02-06",
+      "approval_fact_verified_on": "2026-10-27",
+      "label_requirements_raw": "1.本品应于番茄灰霉病发病前或发病初期开始施药，可连续施药2次，施药间隔7天左右，每亩兑水量45—60公斤，整株均匀喷雾。2.大风天或预计1小时内降雨，请勿施药。3. 请勿在强阳光下喷雾，晴天傍晚或阴天用药效果最佳。",
+      "label_precautions_raw": "1.使用本品应采取相应的安全防护措施，穿戴防护服、口罩、手套、护目镜等，避免皮肤接触及口鼻吸入。使用中不可吸烟、饮水及吃东西，使用后及时清洗手、脸等暴露部位皮肤并更换衣物。2. 禁止与强酸强碱性农药等物质混合使用。3. 用过的容器应妥善处理，不得挪作他用，也不可随意丢弃。4. 禁止儿童、孕妇和哺乳期妇女接触。5. 过敏者禁用，使用中有任何不良反应请及时就医。6.农药包装废弃物不得随意丢弃或自行处理，及时交回农药经营者或农药包装废弃物回收站；禁止在河塘等水体中清洗施药器具，施药后剩余药液不得随意倾倒。",
+      "label_quality_guarantee_raw": "1年",
+      "safe_interval_raw": null,
+      "sources": {
+        "announcement_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/t20251118_6478977.htm",
+        "registration_table_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118315185644382.xls",
+        "label_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118315186269661.doc",
+        "table_sha256": "94d0b0777880a2c38a9c652291c70cb604e1fb3f55c1b8dc6bd146300af96a36",
+        "label_sha256": "979e57befad1cbef96808b21e4223d2fc16d231ade5031b03119f1b02e81cfda",
+        "table_sheet": "新农药产品登记信息",
+        "table_rows": [
+          5
+        ],
+        "label_locator": "登记证号：PD20250006",
+        "label_version": "随第880号公告公布的核准标签；未核对后续版本"
+      },
+      "safe_interval_note": "所读取标签未明确单列安全间隔期，留空，不代表0天；需结合当前有效标签复核。",
+      "review_status": "official_publication_transcribed_pending_agronomic_and_current_registry_review"
+    },
+    {
+      "registration_number": "PD20250007",
+      "product_name": "贝莱斯芽孢杆菌M173",
+      "holder": "湖南慕恩生物科技有限公司",
+      "formulation": "悬浮剂",
+      "composition": "贝莱斯芽孢杆菌M1735亿CFU/毫升",
+      "toxicity_in_registration_table": "微毒",
+      "product_category_in_registration_table": "杀菌剂",
+      "technical_material": false,
+      "uses": [
+        {
+          "crop": "番茄",
+          "target": "青枯病",
+          "label_dose_raw": "1500-2000毫升/亩",
+          "application_method_raw": "灌根"
+        }
+      ],
+      "current_registration_status": "unknown",
+      "registration_valid_until": null,
+      "status_note": "已核对公告及核准标签，未连接当前登记库；登记当前有效性、撤销、延续及变更尚未复核。",
+      "announcement_date": "2025-02-06",
+      "approval_fact_verified_on": "2026-10-27",
+      "label_requirements_raw": "1.于番茄苗移栽时首次施药，间隔7—10天，连续施药3次，亩兑水量为45—70公斤。2.大风天或预计1小时内降雨，请勿施药。3.请勿在强阳光下喷雾，晴天傍晚或阴天用药效果最佳。",
+      "label_precautions_raw": "1.使用本品应穿戴防护用品，避免接触药品。避免皮肤接触及口鼻吸入。使用中不可吸烟、饮水及吃东西，使用后及时清理手、脸等暴露部位皮肤并更换衣服。2.用过的容器应妥善处理，不得挪作他用，也不可随意丢弃。3.泄漏处理：隔离污染区，限制出入，应急处理人员戴防尘口罩、手套、防护服，不要直接接触泄漏物，收集运往废物处理场所处置。4.禁止儿童、孕妇和哺乳期妇女接触。5.过敏者禁用，使用中有任何不良反应请及时就医。6.农药包装废弃物不得随意丢弃或自行处理，应及时交回农药经营者或农药包装废弃物回收站；禁止在河塘等水体中清洗施药器具，施药后剩余药液不得随意倾倒。",
+      "label_quality_guarantee_raw": "1年",
+      "safe_interval_raw": null,
+      "sources": {
+        "announcement_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/t20251118_6478977.htm",
+        "registration_table_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118315185644382.xls",
+        "label_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118315186269661.doc",
+        "table_sha256": "94d0b0777880a2c38a9c652291c70cb604e1fb3f55c1b8dc6bd146300af96a36",
+        "label_sha256": "979e57befad1cbef96808b21e4223d2fc16d231ade5031b03119f1b02e81cfda",
+        "table_sheet": "新农药产品登记信息",
+        "table_rows": [
+          7
+        ],
+        "label_locator": "登记证号：PD20250007",
+        "label_version": "随第880号公告公布的核准标签；未核对后续版本"
+      },
+      "safe_interval_note": "所读取标签未明确单列安全间隔期，留空，不代表0天；需结合当前有效标签复核。",
+      "review_status": "official_publication_transcribed_pending_agronomic_and_current_registry_review"
+    },
+    {
+      "registration_number": "PD20250008",
+      "product_name": "姜黄根茎提取物",
+      "holder": "上海交通大学",
+      "formulation": "乳油",
+      "composition": "芳姜黄酮6.5%",
+      "toxicity_in_registration_table": "低毒",
+      "product_category_in_registration_table": "杀菌剂",
+      "technical_material": false,
+      "uses": [
+        {
+          "crop": "黄瓜",
+          "target": "白粉病",
+          "label_dose_raw": "250-350毫升/亩",
+          "application_method_raw": "喷雾"
+        }
+      ],
+      "current_registration_status": "unknown",
+      "registration_valid_until": null,
+      "status_note": "已核对公告及核准标签，未连接当前登记库；登记当前有效性、撤销、延续及变更尚未复核。",
+      "announcement_date": "2025-02-06",
+      "approval_fact_verified_on": "2026-10-27",
+      "label_requirements_raw": "1.于黄瓜白粉病发病前或发病初期（即黄瓜下部叶片出现零星粉斑时）常规喷雾，可连续用药3次，施药间隔5—7天，亩兑水量为45—70公斤。2.选择在无风或微风，没有露水的天气条件下施药；避免在全天最高温度时施药。",
+      "label_precautions_raw": "1.本品对皮肤有刺激性，对眼睛有中度刺激性，操作时应穿戴防护服、护目镜、手套、口罩、帽子等安全防护用具。2.使用时不得吸烟、进食、饮水。使用应立即清洗手脸等暴露部位皮肤，并更换、洗涤施药时穿戴的衣物。3.农药包装废弃物不得随意丢弃或自行处理，应及时交回农药经营者或农药包装废弃物回收站；禁止在河塘等水体中清洗施药器具，施药后剩余药液不得随意倾倒；水产养殖区、河塘等水体及附近禁用。4.请勿超量用药，以免发生药害。5.孕妇、哺乳期妇女避免接触本品。",
+      "label_quality_guarantee_raw": "2年",
+      "safe_interval_raw": null,
+      "sources": {
+        "announcement_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/t20251118_6478977.htm",
+        "registration_table_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118315185644382.xls",
+        "label_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118315186269661.doc",
+        "table_sha256": "94d0b0777880a2c38a9c652291c70cb604e1fb3f55c1b8dc6bd146300af96a36",
+        "label_sha256": "979e57befad1cbef96808b21e4223d2fc16d231ade5031b03119f1b02e81cfda",
+        "table_sheet": "新农药产品登记信息",
+        "table_rows": [
+          9
+        ],
+        "label_locator": "登记证号：PD20250008",
+        "label_version": "随第880号公告公布的核准标签；未核对后续版本"
+      },
+      "safe_interval_note": "所读取标签未明确单列安全间隔期，留空，不代表0天；需结合当前有效标签复核。",
+      "review_status": "official_publication_transcribed_pending_agronomic_and_current_registry_review"
+    },
+    {
+      "registration_number": "PD20250009",
+      "product_name": "枯草芽孢杆菌HT1902",
+      "holder": "陕西恒田生物农业有限公司",
+      "formulation": "可湿性粉剂",
+      "composition": "枯草芽孢杆菌HT19021000亿CFU/克",
+      "toxicity_in_registration_table": "微毒",
+      "product_category_in_registration_table": "杀菌剂",
+      "technical_material": false,
+      "uses": [
+        {
+          "crop": "黄瓜",
+          "target": "白粉病",
+          "label_dose_raw": "70-80克/亩",
+          "application_method_raw": "喷雾"
+        }
+      ],
+      "current_registration_status": "unknown",
+      "registration_valid_until": null,
+      "status_note": "已核对公告及核准标签，未连接当前登记库；登记当前有效性、撤销、延续及变更尚未复核。",
+      "announcement_date": "2025-02-06",
+      "approval_fact_verified_on": "2026-10-27",
+      "label_requirements_raw": "1.防治黄瓜白粉病，于黄瓜白粉病发病前或发病初期施药，可施药3次，间隔7天左右，亩兑水量为45—60公斤。2.请勿在强阳光下施药，傍晚或阴天用药效果较佳。3.大风天或预计1小时内降雨，请勿施药。",
+      "label_precautions_raw": "1.使用本品前请仔细阅读本标签，按照标签的使用技术和方法施药。2.本品不可与呈碱性的农药等物质混合使用。3.本品对眼睛有中度刺激性，操作时应穿戴防护服、防护面罩、护目镜、口罩、手套等安全防护用具。操作期间不得吸烟、进食、饮水等。操作后立即清洗手脸等暴露部位皮肤并更换衣物。4.农药包装废弃物不得随意丢弃或自行处理，应及时交回农药经营者或农药包装废弃物回收站；禁止在河塘等水体中清洗施药器具，施药后剩余药液不得随意倾倒。5.儿童、孕妇、哺乳期妇女及过敏者避免接触本品。",
+      "label_quality_guarantee_raw": "2年",
+      "safe_interval_raw": null,
+      "sources": {
+        "announcement_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/t20251118_6478977.htm",
+        "registration_table_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118315185644382.xls",
+        "label_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118315186269661.doc",
+        "table_sha256": "94d0b0777880a2c38a9c652291c70cb604e1fb3f55c1b8dc6bd146300af96a36",
+        "label_sha256": "979e57befad1cbef96808b21e4223d2fc16d231ade5031b03119f1b02e81cfda",
+        "table_sheet": "新农药产品登记信息",
+        "table_rows": [
+          11
+        ],
+        "label_locator": "登记证号：PD20250009",
+        "label_version": "随第880号公告公布的核准标签；未核对后续版本"
+      },
+      "safe_interval_note": "所读取标签未明确单列安全间隔期，留空，不代表0天；需结合当前有效标签复核。",
+      "review_status": "official_publication_transcribed_pending_agronomic_and_current_registry_review"
+    },
+    {
+      "registration_number": "PD20250011",
+      "product_name": "贝莱斯芽孢杆菌MBI600",
+      "holder": "澳大利亚纽发姆有限公司",
+      "formulation": "悬浮剂",
+      "composition": "贝莱斯芽孢杆菌MBI60020亿CFU/毫升",
+      "toxicity_in_registration_table": "微毒",
+      "product_category_in_registration_table": "杀线虫剂/杀菌剂",
+      "technical_material": false,
+      "uses": [
+        {
+          "crop": "黄瓜",
+          "target": "根结线虫",
+          "label_dose_raw": "80-120毫升/亩",
+          "application_method_raw": "灌根"
+        }
+      ],
+      "current_registration_status": "unknown",
+      "registration_valid_until": null,
+      "status_note": "已核对公告及核准标签，未连接当前登记库；登记当前有效性、撤销、延续及变更尚未复核。",
+      "announcement_date": "2025-02-06",
+      "approval_fact_verified_on": "2026-10-27",
+      "label_requirements_raw": "黄瓜移栽当天按照制剂用量兑水灌根施药1次。根据土壤墒情确定兑水量，建议每株兑水量为400毫升。",
+      "label_precautions_raw": "1.本品对眼睛有中度刺激性，操作时应穿戴防护服、防护面罩、护目镜、口罩、手套等安全防护用具。2.操作期间不得吸烟、进食、饮水。操作后立即清洗手脸等暴露部位皮肤并更换衣物。3.避免接触强酸和强碱性物质。4.兑好的药液应尽快使用，放置时间不宜过长。5.建议与其他作用机制不同的杀线虫剂轮换使用。6. 农药包装废弃物不得随意丢弃或自行处理，及时交回农药经营者或农药包装废弃物回收站；禁止在河塘等水体中清洗施药器具，施药后剩余药液不得随意倾倒。7. 用过的容器应妥善处理，不可作他用，也不可随意丢弃。8.儿童、孕妇及哺乳期妇女避免接触本品。",
+      "label_quality_guarantee_raw": "2年",
+      "safe_interval_raw": null,
+      "sources": {
+        "announcement_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/t20251118_6478977.htm",
+        "registration_table_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118315185644382.xls",
+        "label_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118315186269661.doc",
+        "table_sha256": "94d0b0777880a2c38a9c652291c70cb604e1fb3f55c1b8dc6bd146300af96a36",
+        "label_sha256": "979e57befad1cbef96808b21e4223d2fc16d231ade5031b03119f1b02e81cfda",
+        "table_sheet": "新农药产品登记信息",
+        "table_rows": [
+          14
+        ],
+        "label_locator": "登记证号：PD20250011",
+        "label_version": "随第880号公告公布的核准标签；未核对后续版本"
+      },
+      "safe_interval_note": "所读取标签未明确单列安全间隔期，留空，不代表0天；需结合当前有效标签复核。",
+      "review_status": "official_publication_transcribed_pending_agronomic_and_current_registry_review"
+    },
+    {
+      "registration_number": "PD20251259",
+      "product_name": "暹罗芽孢杆菌ZXKN01",
+      "holder": "山东康惠植物保护有限公司",
+      "formulation": "可湿性粉剂",
+      "composition": "暹罗芽孢杆菌ZXKN0110亿CFU/克",
+      "toxicity_in_registration_table": "微毒",
+      "product_category_in_registration_table": "杀菌剂",
+      "technical_material": false,
+      "uses": [
+        {
+          "crop": "番茄",
+          "target": "根结线虫",
+          "label_dose_raw": "2000—2500克/亩",
+          "application_method_raw": "灌根"
+        }
+      ],
+      "current_registration_status": "unknown",
+      "registration_valid_until": null,
+      "status_note": "已核对公告及核准标签，未连接当前登记库；登记当前有效性、撤销、延续及变更尚未复核。",
+      "announcement_date": "2025-05-16",
+      "approval_fact_verified_on": "2026-10-27",
+      "label_requirements_raw": "于番茄移栽当天进行灌根，间隔7—10天再施药1次，共用药2次，每亩用水量45—70公斤，每株用药液量200—400毫升为宜。",
+      "label_precautions_raw": "1.本品不可与化学农药等物质混合使用。2.本品对眼睛有中度刺激性，使用时避免接触眼睛，应穿防护服、戴防护面罩（或护目镜和口罩）、手套等安全防护用具。3.施药时严禁进食、饮水、吸烟等。施药后应及时洗手、脸等暴露部位，并更换衣物。4.农药包装废弃物不得随意丢弃或自行处理，应及时交回农药经营者或农药包装废弃物回收站；禁止在河塘等水体中清洗施药器具，施药后剩余药液不得随意倾倒。5.儿童、孕妇、哺乳期妇女及过敏者禁止接触。",
+      "label_quality_guarantee_raw": "1年",
+      "safe_interval_raw": null,
+      "sources": {
+        "announcement_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/t20251118_6478979.htm",
+        "registration_table_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118319593854561.xls",
+        "label_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118319594619353.doc",
+        "table_sha256": "bb4e9d20b86810e5b8501393324f5124ceb59f1bf4a9e777ae7dade8c6d8201a",
+        "label_sha256": "18af3489e623b524fae592f29fa8c235757895b6e7e6118af4b9744321e4f59b",
+        "table_sheet": "Sheet1",
+        "table_rows": [
+          5
+        ],
+        "label_locator": "登记证号：PD20251259",
+        "label_version": "随第910号公告公布的核准标签；未核对后续版本"
+      },
+      "safe_interval_note": "所读取标签未明确单列安全间隔期，留空，不代表0天；需结合当前有效标签复核。",
+      "review_status": "official_publication_transcribed_pending_agronomic_and_current_registry_review"
+    },
+    {
+      "registration_number": "PD20251260",
+      "product_name": "厚垣孢普克尼亚菌YMF1.00111",
+      "holder": "云南大学",
+      "formulation": "粉剂",
+      "composition": "厚垣孢普克尼亚菌YMF1.001110.2亿CFU/克",
+      "toxicity_in_registration_table": "微毒",
+      "product_category_in_registration_table": "杀菌剂",
+      "technical_material": false,
+      "uses": [
+        {
+          "crop": "番茄",
+          "target": "根结线虫",
+          "label_dose_raw": "2000-2500克/亩",
+          "application_method_raw": "穴施"
+        }
+      ],
+      "current_registration_status": "unknown",
+      "registration_valid_until": null,
+      "status_note": "已核对公告及核准标签，未连接当前登记库；登记当前有效性、撤销、延续及变更尚未复核。",
+      "announcement_date": "2025-05-16",
+      "approval_fact_verified_on": "2026-10-27",
+      "label_requirements_raw": "于番茄移栽时，将本品与适量细砂土拌匀后进行穴施。",
+      "label_precautions_raw": "1.本品不可与化学农药混合使用。2.使用时应穿防护服、戴手套、口罩等安全防护用具。3.使用时禁止吸烟、进食、饮水。使用后应及时清洗手、脸等暴露部位并及时更换衣物。4.农药包装废弃物不得随意丢弃或自行处理，及时交回农药经营者或农药包装废弃物回收站；水产养殖区、河塘等水体及附近禁用；禁止在河塘等水体中清洗施药器具，施药后剩余药液不得随意倾倒。5. 禁止儿童、孕妇、哺乳期妇女及过敏者接触。",
+      "label_quality_guarantee_raw": "1年",
+      "safe_interval_raw": null,
+      "sources": {
+        "announcement_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/t20251118_6478979.htm",
+        "registration_table_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118319593854561.xls",
+        "label_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118319594619353.doc",
+        "table_sha256": "bb4e9d20b86810e5b8501393324f5124ceb59f1bf4a9e777ae7dade8c6d8201a",
+        "label_sha256": "18af3489e623b524fae592f29fa8c235757895b6e7e6118af4b9744321e4f59b",
+        "table_sheet": "Sheet1",
+        "table_rows": [
+          7
+        ],
+        "label_locator": "登记证号：PD20251260",
+        "label_version": "随第910号公告公布的核准标签；未核对后续版本"
+      },
+      "safe_interval_note": "所读取标签未明确单列安全间隔期，留空，不代表0天；需结合当前有效标签复核。",
+      "review_status": "official_publication_transcribed_pending_agronomic_and_current_registry_review"
+    },
+    {
+      "registration_number": "PD20251261",
+      "product_name": "贝莱斯芽孢杆菌MBI600",
+      "holder": "巴斯夫欧洲公司",
+      "formulation": "可湿性粉剂",
+      "composition": "贝莱斯芽孢杆菌MBI600550亿CFU/克",
+      "toxicity_in_registration_table": "微毒",
+      "product_category_in_registration_table": "杀菌剂",
+      "technical_material": false,
+      "uses": [
+        {
+          "crop": "黄瓜",
+          "target": "白粉病",
+          "label_dose_raw": "40—60克/亩",
+          "application_method_raw": "喷雾"
+        },
+        {
+          "crop": "葡萄",
+          "target": "灰霉病",
+          "label_dose_raw": "500—750倍液",
+          "application_method_raw": "喷雾"
+        }
+      ],
+      "current_registration_status": "unknown",
+      "registration_valid_until": null,
+      "status_note": "已核对公告及核准标签，未连接当前登记库；登记当前有效性、撤销、延续及变更尚未复核。",
+      "announcement_date": "2025-05-16",
+      "approval_fact_verified_on": "2026-10-27",
+      "label_requirements_raw": "1.严格按照标签标注的信息使用本品，使用前需充分摇匀。2.发病前或发病初期常规喷雾施药，可连续用药3次，间隔7天左右。黄瓜用水量40—60公斤/亩，葡萄用水量60—100公斤/亩。3.叶面喷雾达到叶面湿润且刚好不滴水为宜。",
+      "label_precautions_raw": "1.应现配现兑，配好的药液要立即使用。2.本品对眼睛有中度刺激性，配药和施药时应穿防护服、戴防护面罩（或护目镜和口罩）、手套等安全防护用具。3.施药时避免进食、饮水、吸烟等，避免吸入有害气体、雾液。4.使用后应及时洗手、洗脸等暴露部位皮肤并更换衣物。5.儿童、孕妇、哺乳期妇女及过敏者避免接触本品。6.农药包装废弃物不得随意丢弃或自行处理，应及时交回农药经营者或农药包装废弃物回收站；禁止在河塘等水体中清洗施药器具，施药后剩余药液不得随意倾倒。",
+      "label_quality_guarantee_raw": "2年",
+      "safe_interval_raw": null,
+      "sources": {
+        "announcement_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/t20251118_6478979.htm",
+        "registration_table_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118319593854561.xls",
+        "label_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118319594619353.doc",
+        "table_sha256": "bb4e9d20b86810e5b8501393324f5124ceb59f1bf4a9e777ae7dade8c6d8201a",
+        "label_sha256": "18af3489e623b524fae592f29fa8c235757895b6e7e6118af4b9744321e4f59b",
+        "table_sheet": "Sheet1",
+        "table_rows": [
+          8,
+          9
+        ],
+        "label_locator": "登记证号：PD20251261",
+        "label_version": "随第910号公告公布的核准标签；未核对后续版本"
+      },
+      "safe_interval_note": "所读取标签未明确单列安全间隔期，留空，不代表0天；需结合当前有效标签复核。",
+      "review_status": "official_publication_transcribed_pending_agronomic_and_current_registry_review"
+    },
+    {
+      "registration_number": "PD20262010",
+      "product_name": "海带多糖",
+      "holder": "法国高默尔实验室公司",
+      "formulation": "可溶液剂",
+      "composition": "海带多糖45克/升",
+      "toxicity_in_registration_table": "低毒",
+      "product_category_in_registration_table": "杀菌剂",
+      "technical_material": false,
+      "uses": [
+        {
+          "crop": "草莓",
+          "target": "灰霉病",
+          "label_dose_raw": "100—130毫升/亩",
+          "application_method_raw": "喷雾"
+        },
+        {
+          "crop": "黄瓜",
+          "target": "白粉病",
+          "label_dose_raw": "100—130毫升/亩",
+          "application_method_raw": "喷雾"
+        }
+      ],
+      "current_registration_status": "unknown",
+      "registration_valid_until": null,
+      "status_note": "已核对公告及核准标签，未连接当前登记库；登记当前有效性、撤销、延续及变更尚未复核。",
+      "announcement_date": "2026-05-11",
+      "approval_fact_verified_on": "2026-10-27",
+      "label_requirements_raw": "于草莓灰霉病、黄瓜白粉病发生前进行常规喷雾，可施药\n3\n次，间隔\n7\n天左右。草莓兑水量\n30\n—\n45\n公斤\n/\n亩，黄瓜兑水量\n30\n—\n80\n公斤\n/\n亩。",
+      "label_precautions_raw": "1.\n使用前仔细阅读此标签，并严格按照标签使用。\n2.\n施用时注意安全防护，穿（戴）长衣、长\n裤、帽子、口罩、手套、鞋子等。操作过程中禁止饮水、吸烟或进食。操作完毕应及时洗手\n洗脸。\n3.\n儿童、孕妇、哺乳期妇女及过敏者禁用。\n4.\n农药包装废弃物不得随意丢弃或自行处理，\n应及时交回农药经营者或农药包装废弃物回收站；禁止在河塘等水体中清洗施药器具，施药\n后剩余药液不得随意倾倒。\n5.\n灭火措施：适用灭火剂为水雾、泡沫、二氧化碳、干粉。\n6.\n如有\n泄漏，用惰性吸附材料或真空收集器收集泄漏物，将吸附材料或泄漏物收集到封闭的容器内。",
+      "label_quality_guarantee_raw": "2\n年",
+      "safe_interval_raw": null,
+      "sources": {
+        "announcement_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202605/t20260520_6484333.htm",
+        "registration_table_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202605/P020260520564857873462.ofd",
+        "label_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202605/P020260520564857873462.ofd",
+        "table_sha256": "4d4cca427cf0a257e3e52faa824032ec3497b2be96d9dbb25333c9797d818d90",
+        "label_sha256": "4d4cca427cf0a257e3e52faa824032ec3497b2be96d9dbb25333c9797d818d90",
+        "table_locator": "附件1，第2页",
+        "label_locator": "附件2，第4页；登记证号：PD20262010",
+        "label_version": "随第1019号公告公布的核准标签；未核对后续版本"
+      },
+      "safe_interval_note": "所读取标签未明确单列安全间隔期，留空，不代表0天；需结合当前有效标签复核。",
+      "review_status": "official_publication_transcribed_pending_agronomic_and_current_registry_review"
+    },
+    {
+      "registration_number": "PD20262011",
+      "product_name": "烟草花叶病毒衣壳蛋白核酸干扰素",
+      "holder": "硅羿科技（上海）有限公司",
+      "formulation": "悬浮剂",
+      "composition": "烟草花叶病毒衣壳蛋白核酸干扰素2.5%",
+      "toxicity_in_registration_table": "微毒",
+      "product_category_in_registration_table": "杀菌剂",
+      "technical_material": false,
+      "uses": [
+        {
+          "crop": "烟草",
+          "target": "花叶病毒病",
+          "label_dose_raw": "150—250毫升/亩",
+          "application_method_raw": "喷雾"
+        }
+      ],
+      "current_registration_status": "unknown",
+      "registration_valid_until": null,
+      "status_note": "已核对公告及核准标签，未连接当前登记库；登记当前有效性、撤销、延续及变更尚未复核。",
+      "announcement_date": "2026-05-11",
+      "approval_fact_verified_on": "2026-10-27",
+      "label_requirements_raw": "1.\n应于烟草移栽前\n1\n—\n2\n天对烟苗进行喷雾，移栽定植\n7\n—\n10\n天后连续施药\n2\n次，间隔\n7\n天，\n共施药\n3\n次；用水量约\n15\n—\n45\n公斤\n/\n亩，根据烟草植株大小适当调整用水量，以亩用水量\n30\n公斤所稀释的浓度为标准，以达到药液喷至叶面湿润不滴水为宜。\n2.\n配药时，采用二次稀释\n法，将药剂均匀分散到水中。",
+      "label_precautions_raw": "1.\n使用前仔细阅读此标签，并严格按照标签使用。\n2.\n施药时注意安全防护，穿戴帽子、口罩、\n长衣、长裤、手套、鞋等；施药期间不可进食、饮水、吸烟等。施药后应及时洗手、洗脸并\n洗涤施药时穿戴的衣物。\n3.\n农药包装废弃物不得随意丢弃或自行处理，应及时交回农药经营\n者或农药包装废弃物回收站；禁止在河塘等水体中清洗施药器具，施药后剩余药液不得随意\n倾倒；水产养殖区、河塘等水体及附近禁用。\n4.\n避免与强酸类、强碱类、金属无机类、氧化\n性和微生物等农药或肥料混用，以免影响药效。\n5.\n避免在高温天气的中午施药，以免发生中\n暑。\n6.\n儿童、孕妇、哺乳期妇女及过敏者避免接触本品。",
+      "label_quality_guarantee_raw": "18\n个月",
+      "safe_interval_raw": null,
+      "sources": {
+        "announcement_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202605/t20260520_6484333.htm",
+        "registration_table_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202605/P020260520564857873462.ofd",
+        "label_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202605/P020260520564857873462.ofd",
+        "table_sha256": "4d4cca427cf0a257e3e52faa824032ec3497b2be96d9dbb25333c9797d818d90",
+        "label_sha256": "4d4cca427cf0a257e3e52faa824032ec3497b2be96d9dbb25333c9797d818d90",
+        "table_locator": "附件1，第2页",
+        "label_locator": "附件2，第6页；登记证号：PD20262011",
+        "label_version": "随第1019号公告公布的核准标签；未核对后续版本"
+      },
+      "safe_interval_note": "所读取标签未明确单列安全间隔期，留空，不代表0天；需结合当前有效标签复核。",
+      "review_status": "official_publication_transcribed_pending_agronomic_and_current_registry_review"
+    },
+    {
+      "registration_number": "PD20250001",
+      "product_name": "哈茨木霉菌TH7",
+      "holder": "湖南慕恩生物科技有限公司",
+      "formulation": "母药",
+      "composition": "哈茨木霉菌TH750亿CFU/克",
+      "toxicity_in_registration_table": "低毒",
+      "product_category_in_registration_table": "杀菌剂",
+      "technical_material": true,
+      "uses": [],
+      "current_registration_status": "unknown",
+      "registration_valid_until": null,
+      "status_note": "已核对公告及核准标签，未连接当前登记库；登记当前有效性、撤销、延续及变更尚未复核。",
+      "announcement_date": "2025-02-06",
+      "approval_fact_verified_on": "2026-10-27",
+      "label_requirements_raw": "",
+      "label_precautions_raw": "1.本品对眼睛有中度刺激性，操作时应穿戴防护服、防护面罩、护目镜、口罩、手套等安全防护用具。使用中不可吸烟、饮水及吃东西，使用后及时清洗手、脸等暴露部位皮肤并更换衣物。2.禁止与强酸强碱性农药物质混合使用。3.泄漏处理：隔离污染区，限制出入，应急处理人员戴口罩、手套、防护服，不要直接接触泄漏物，收集运往废物处理场所处置。4.用过的容器应妥善处理，不得挪作他用，也不可随意丢弃。5.禁止儿童、孕妇和哺乳期妇女接触。6.过敏者禁用，使用中有任何不良反应请及时就医。",
+      "label_quality_guarantee_raw": "1年",
+      "safe_interval_raw": null,
+      "sources": {
+        "announcement_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/t20251118_6478977.htm",
+        "registration_table_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118315185644382.xls",
+        "label_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118315186269661.doc",
+        "table_sha256": "94d0b0777880a2c38a9c652291c70cb604e1fb3f55c1b8dc6bd146300af96a36",
+        "label_sha256": "979e57befad1cbef96808b21e4223d2fc16d231ade5031b03119f1b02e81cfda",
+        "table_sheet": "新农药产品登记信息",
+        "table_rows": [
+          4
+        ],
+        "label_locator": "登记证号：PD20250001",
+        "label_version": "随第880号公告公布的核准标签；未核对后续版本"
+      },
+      "safe_interval_note": "所读取标签未明确单列安全间隔期，留空，不代表0天；需结合当前有效标签复核。",
+      "review_status": "official_publication_transcribed_pending_agronomic_and_current_registry_review"
+    },
+    {
+      "registration_number": "PD20250002",
+      "product_name": "贝莱斯芽孢杆菌M173",
+      "holder": "湖南慕恩生物科技有限公司",
+      "formulation": "母药",
+      "composition": "贝莱斯芽孢杆菌M1731000亿CFU/克",
+      "toxicity_in_registration_table": "微毒",
+      "product_category_in_registration_table": "杀菌剂",
+      "technical_material": true,
+      "uses": [],
+      "current_registration_status": "unknown",
+      "registration_valid_until": null,
+      "status_note": "已核对公告及核准标签，未连接当前登记库；登记当前有效性、撤销、延续及变更尚未复核。",
+      "announcement_date": "2025-02-06",
+      "approval_fact_verified_on": "2026-10-27",
+      "label_requirements_raw": "",
+      "label_precautions_raw": "1.本品对眼睛有中度刺激性，避免药液溅入眼睛，操作时应穿戴防护服、防护面罩、护目镜、口罩、手套等安全防护用具，避免接触药品。2.操作期间不得吸烟、进食、饮水。操作后立即清洗手脸等暴露部位皮肤并更换衣物。3.用过的容器应妥善处理，不得挪作他用，也不可随意丢弃。4.泄漏处理：隔离污染区，限制出入，应急处理人员穿戴防尘口罩、手套、防护服，不要直接接触泄漏物，收集运往废物处理场所处置。5.禁止儿童、孕妇和哺乳期妇女接触。6.过敏者禁用，使用中有任何不良反应请及时就医。",
+      "label_quality_guarantee_raw": "1年",
+      "safe_interval_raw": null,
+      "sources": {
+        "announcement_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/t20251118_6478977.htm",
+        "registration_table_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118315185644382.xls",
+        "label_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118315186269661.doc",
+        "table_sha256": "94d0b0777880a2c38a9c652291c70cb604e1fb3f55c1b8dc6bd146300af96a36",
+        "label_sha256": "979e57befad1cbef96808b21e4223d2fc16d231ade5031b03119f1b02e81cfda",
+        "table_sheet": "新农药产品登记信息",
+        "table_rows": [
+          6
+        ],
+        "label_locator": "登记证号：PD20250002",
+        "label_version": "随第880号公告公布的核准标签；未核对后续版本"
+      },
+      "safe_interval_note": "所读取标签未明确单列安全间隔期，留空，不代表0天；需结合当前有效标签复核。",
+      "review_status": "official_publication_transcribed_pending_agronomic_and_current_registry_review"
+    },
+    {
+      "registration_number": "PD20250003",
+      "product_name": "姜黄根茎提取物",
+      "holder": "上海交通大学",
+      "formulation": "母药",
+      "composition": "芳姜黄酮13%",
+      "toxicity_in_registration_table": "低毒",
+      "product_category_in_registration_table": "杀菌剂",
+      "technical_material": true,
+      "uses": [],
+      "current_registration_status": "unknown",
+      "registration_valid_until": null,
+      "status_note": "已核对公告及核准标签，未连接当前登记库；登记当前有效性、撤销、延续及变更尚未复核。",
+      "announcement_date": "2025-02-06",
+      "approval_fact_verified_on": "2026-10-27",
+      "label_requirements_raw": "",
+      "label_precautions_raw": "1.本品对皮肤有刺激性，对眼睛有中度刺激性，操作时应穿戴防护服、防护面罩、护目镜、口罩、手套等安全防护用具。2.操作期间不得吸烟、进食、饮水。操作后立即清洗手脸等暴露部位皮肤并更换衣物。3.本品对水生生物高毒，因此制剂加工用完的包装瓶禁止在河塘等水体中清洗，剩余药液不得随意倾倒。4.农药包装废弃物不得随意丢弃或自行处理，应及时交回农药经营者或农药包装废弃物回收站。5.孕妇、哺乳期妇女避免接触本品。",
+      "label_quality_guarantee_raw": "2年",
+      "safe_interval_raw": null,
+      "sources": {
+        "announcement_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/t20251118_6478977.htm",
+        "registration_table_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118315185644382.xls",
+        "label_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118315186269661.doc",
+        "table_sha256": "94d0b0777880a2c38a9c652291c70cb604e1fb3f55c1b8dc6bd146300af96a36",
+        "label_sha256": "979e57befad1cbef96808b21e4223d2fc16d231ade5031b03119f1b02e81cfda",
+        "table_sheet": "新农药产品登记信息",
+        "table_rows": [
+          8
+        ],
+        "label_locator": "登记证号：PD20250003",
+        "label_version": "随第880号公告公布的核准标签；未核对后续版本"
+      },
+      "safe_interval_note": "所读取标签未明确单列安全间隔期，留空，不代表0天；需结合当前有效标签复核。",
+      "review_status": "official_publication_transcribed_pending_agronomic_and_current_registry_review"
+    },
+    {
+      "registration_number": "PD20250004",
+      "product_name": "枯草芽孢杆菌HT1902",
+      "holder": "陕西恒田生物农业有限公司",
+      "formulation": "母药",
+      "composition": "枯草芽孢杆菌HT19025000亿CFU/克",
+      "toxicity_in_registration_table": "微毒",
+      "product_category_in_registration_table": "杀菌剂",
+      "technical_material": true,
+      "uses": [],
+      "current_registration_status": "unknown",
+      "registration_valid_until": null,
+      "status_note": "已核对公告及核准标签，未连接当前登记库；登记当前有效性、撤销、延续及变更尚未复核。",
+      "announcement_date": "2025-02-06",
+      "approval_fact_verified_on": "2026-10-27",
+      "label_requirements_raw": "",
+      "label_precautions_raw": "1.本品对皮肤、眼睛有刺激性，操作时应穿戴防护服、防护面罩、护目镜、口罩、手套等安全防护用具。2.操作期间不得吸烟、进食、饮水。操作后应立即清洗手脸等暴露部位皮肤并更换衣物。3.农药包装废弃物不得随意丢弃或自行处理，应及时交回农药经营者或农药包装废弃物回收站。4.儿童、孕妇、哺乳期妇女及过敏者避免接触本品。5.药液及其废液不得倾入各类水域。",
+      "label_quality_guarantee_raw": "2年",
+      "safe_interval_raw": null,
+      "sources": {
+        "announcement_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/t20251118_6478977.htm",
+        "registration_table_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118315185644382.xls",
+        "label_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118315186269661.doc",
+        "table_sha256": "94d0b0777880a2c38a9c652291c70cb604e1fb3f55c1b8dc6bd146300af96a36",
+        "label_sha256": "979e57befad1cbef96808b21e4223d2fc16d231ade5031b03119f1b02e81cfda",
+        "table_sheet": "新农药产品登记信息",
+        "table_rows": [
+          10
+        ],
+        "label_locator": "登记证号：PD20250004",
+        "label_version": "随第880号公告公布的核准标签；未核对后续版本"
+      },
+      "safe_interval_note": "所读取标签未明确单列安全间隔期，留空，不代表0天；需结合当前有效标签复核。",
+      "review_status": "official_publication_transcribed_pending_agronomic_and_current_registry_review"
+    },
+    {
+      "registration_number": "PD20250005",
+      "product_name": "贝莱斯芽孢杆菌C17271",
+      "holder": "浙江赛瑞可细胞技术有限公司",
+      "formulation": "母药",
+      "composition": "贝莱斯芽孢杆菌C1727120亿CFU/克",
+      "toxicity_in_registration_table": "低毒",
+      "product_category_in_registration_table": "杀菌剂",
+      "technical_material": true,
+      "uses": [],
+      "current_registration_status": "unknown",
+      "registration_valid_until": null,
+      "status_note": "已核对公告及核准标签，未连接当前登记库；登记当前有效性、撤销、延续及变更尚未复核。",
+      "announcement_date": "2025-02-06",
+      "approval_fact_verified_on": "2026-10-27",
+      "label_requirements_raw": "",
+      "label_precautions_raw": "1.本品对眼睛有中度刺激性，操作时应穿戴防护服、防护面罩、护目镜、口罩、手套等安全防护用具。2.生产操作：密闭操作，全面通风。建议操作人员戴自吸过滤式防尘口罩、化学安全防护眼镜、防化学品手套，穿透气型防毒服。远离火种，热源，工作场所严禁吸烟，进食、饮水。避免产生粉尘，避免与氧化剂、碱类物质接触。3.开启包装物时应当穿戴防护服、防护面罩、手套等安全防护用品。4.设备检测时应穿工作服、戴手套、护目镜和防护面罩，在安装时应戴防尘口罩。5.灭火紧急措施：一旦失火，可用二氧化碳、干粉、泡沫或砂土做为灭火剂。消防人员须戴防毒面罩、穿全身消防服、消防防护靴、正压自给式呼吸器等，在上风向灭火。出口应始终保持清洁和畅通，必要时采取堵漏或隔离措施，预防次生灾害扩大。6.泄漏处理措施：小量泄漏；用洁净的铲子收集于干燥、洁净、有盖的容器中。运至废物处理场所。被污染地面用肥皂或洗涤剂刷洗，经稀释的污水放入废水系统。大量泄漏；收集回收或运至废物处理场所处置。防止污染到水源或下水道。如泄漏量无法控制，请拨打“119”报警，请求消防专业人员救援，同时要保护、控制好现场。7.废弃物要妥善处理，不得挪作他用或随意丢弃。8.禁止儿童、孕妇及哺乳期的妇女接触。过敏者禁止生产操作，操作中有任何不良反应请及时就医。",
+      "label_quality_guarantee_raw": "1年",
+      "safe_interval_raw": null,
+      "sources": {
+        "announcement_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/t20251118_6478977.htm",
+        "registration_table_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118315185644382.xls",
+        "label_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118315186269661.doc",
+        "table_sha256": "94d0b0777880a2c38a9c652291c70cb604e1fb3f55c1b8dc6bd146300af96a36",
+        "label_sha256": "979e57befad1cbef96808b21e4223d2fc16d231ade5031b03119f1b02e81cfda",
+        "table_sheet": "新农药产品登记信息",
+        "table_rows": [
+          12
+        ],
+        "label_locator": "登记证号：PD20250005",
+        "label_version": "随第880号公告公布的核准标签；未核对后续版本"
+      },
+      "safe_interval_note": "所读取标签未明确单列安全间隔期，留空，不代表0天；需结合当前有效标签复核。",
+      "review_status": "official_publication_transcribed_pending_agronomic_and_current_registry_review"
+    },
+    {
+      "registration_number": "PD20251257",
+      "product_name": "暹罗芽孢杆菌ZXKN01",
+      "holder": "山东康惠植物保护有限公司",
+      "formulation": "母药",
+      "composition": "暹罗芽孢杆菌ZXKN01100亿CFU/克",
+      "toxicity_in_registration_table": "低毒",
+      "product_category_in_registration_table": "杀菌剂",
+      "technical_material": true,
+      "uses": [],
+      "current_registration_status": "unknown",
+      "registration_valid_until": null,
+      "status_note": "已核对公告及核准标签，未连接当前登记库；登记当前有效性、撤销、延续及变更尚未复核。",
+      "announcement_date": "2025-05-16",
+      "approval_fact_verified_on": "2026-10-27",
+      "label_requirements_raw": "",
+      "label_precautions_raw": "1.本品对眼睛有中度刺激性，操作时应穿防护服、戴防护面罩（或护目镜和口罩）、手套等安全防护用具，应避免接触皮肤和眼睛。2.操作时不得进食、饮水、吸烟等，工作后应及时冲洗。3.本品包装物及废弃物应妥善处理，不得挪作他用或随意丢弃。4.如发生泄漏，用塑料布或帆布覆盖减少分散，并收集回收或运至废物处理厂处理。5.儿童、孕妇、哺乳期妇女及过敏者禁止接触。",
+      "label_quality_guarantee_raw": "1年",
+      "safe_interval_raw": null,
+      "sources": {
+        "announcement_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/t20251118_6478979.htm",
+        "registration_table_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118319593854561.xls",
+        "label_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118319594619353.doc",
+        "table_sha256": "bb4e9d20b86810e5b8501393324f5124ceb59f1bf4a9e777ae7dade8c6d8201a",
+        "label_sha256": "18af3489e623b524fae592f29fa8c235757895b6e7e6118af4b9744321e4f59b",
+        "table_sheet": "Sheet1",
+        "table_rows": [
+          4
+        ],
+        "label_locator": "登记证号：PD20251257",
+        "label_version": "随第910号公告公布的核准标签；未核对后续版本"
+      },
+      "safe_interval_note": "所读取标签未明确单列安全间隔期，留空，不代表0天；需结合当前有效标签复核。",
+      "review_status": "official_publication_transcribed_pending_agronomic_and_current_registry_review"
+    },
+    {
+      "registration_number": "PD20251258",
+      "product_name": "厚垣孢普克尼亚菌YMF1.00111",
+      "holder": "云南大学",
+      "formulation": "母药",
+      "composition": "厚垣孢普克尼亚菌YMF1.001112亿CFU/克",
+      "toxicity_in_registration_table": "微毒",
+      "product_category_in_registration_table": "杀菌剂",
+      "technical_material": true,
+      "uses": [],
+      "current_registration_status": "unknown",
+      "registration_valid_until": null,
+      "status_note": "已核对公告及核准标签，未连接当前登记库；登记当前有效性、撤销、延续及变更尚未复核。",
+      "announcement_date": "2025-05-16",
+      "approval_fact_verified_on": "2026-10-27",
+      "label_requirements_raw": "",
+      "label_precautions_raw": "1.本品对眼睛有轻度刺激性，应避免接触皮肤和眼睛，操作时应穿防护服、戴防护面罩（或护目镜和口罩）、手套等安全防护用具。2.操作时严禁吸烟、进食、饮水，操作后及时清洗手、脸等暴露部位皮肤并更换衣物。3.发生泄露时，隔离污染区，限制出入。应急处理人员穿戴防护服、口罩、手套，收集运往废弃物处理场所处理。4.包装物及废弃物要妥善处理，不得挪作他用或随意丢弃。5.禁止儿童、孕妇、哺乳期妇女及过敏者接触。6.使用中有任何不良反应应及时就医。",
+      "label_quality_guarantee_raw": "1年",
+      "safe_interval_raw": null,
+      "sources": {
+        "announcement_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/t20251118_6478979.htm",
+        "registration_table_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118319593854561.xls",
+        "label_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118319594619353.doc",
+        "table_sha256": "bb4e9d20b86810e5b8501393324f5124ceb59f1bf4a9e777ae7dade8c6d8201a",
+        "label_sha256": "18af3489e623b524fae592f29fa8c235757895b6e7e6118af4b9744321e4f59b",
+        "table_sheet": "Sheet1",
+        "table_rows": [
+          6
+        ],
+        "label_locator": "登记证号：PD20251258",
+        "label_version": "随第910号公告公布的核准标签；未核对后续版本"
+      },
+      "safe_interval_note": "所读取标签未明确单列安全间隔期，留空，不代表0天；需结合当前有效标签复核。",
+      "review_status": "official_publication_transcribed_pending_agronomic_and_current_registry_review"
+    },
+    {
+      "registration_number": "PD20262008",
+      "product_name": "海带多糖",
+      "holder": "法国高默尔实验室公司",
+      "formulation": "原药",
+      "composition": "海带多糖90%",
+      "toxicity_in_registration_table": "低毒",
+      "product_category_in_registration_table": "杀菌剂",
+      "technical_material": true,
+      "uses": [],
+      "current_registration_status": "unknown",
+      "registration_valid_until": null,
+      "status_note": "已核对公告及核准标签，未连接当前登记库；登记当前有效性、撤销、延续及变更尚未复核。",
+      "announcement_date": "2026-05-11",
+      "approval_fact_verified_on": "2026-10-27",
+      "label_requirements_raw": "",
+      "label_precautions_raw": "1.\n操作时注意安全防护，穿（戴）长衣、长裤、帽子、口罩、手套、鞋子等。操作过程中禁\n止饮水、吸烟或进食。操作完毕应及时洗手洗脸。\n2.\n孕妇及哺乳期妇女禁用。\n3.\n农药包装废弃\n物不得随意丢弃或自行处理，应及时交回农药经营者或农药包装废弃物回收站。清洗器具的\n废水不能排入河流、池塘等水源。\n4.\n灭火措施：适用灭火剂为水雾、泡沫、二氧化碳、干粉。\n5.\n如有泄漏，用惰性吸附材料或真空收集器收集泄漏物，将吸附材料或泄漏物收集到封闭的\n容器内。",
+      "label_quality_guarantee_raw": "2\n年",
+      "safe_interval_raw": null,
+      "sources": {
+        "announcement_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202605/t20260520_6484333.htm",
+        "registration_table_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202605/P020260520564857873462.ofd",
+        "label_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202605/P020260520564857873462.ofd",
+        "table_sha256": "4d4cca427cf0a257e3e52faa824032ec3497b2be96d9dbb25333c9797d818d90",
+        "label_sha256": "4d4cca427cf0a257e3e52faa824032ec3497b2be96d9dbb25333c9797d818d90",
+        "table_locator": "附件1，第2页",
+        "label_locator": "附件2，第3页；登记证号：PD20262008",
+        "label_version": "随第1019号公告公布的核准标签；未核对后续版本"
+      },
+      "safe_interval_note": "所读取标签未明确单列安全间隔期，留空，不代表0天；需结合当前有效标签复核。",
+      "review_status": "official_publication_transcribed_pending_agronomic_and_current_registry_review"
+    },
+    {
+      "registration_number": "PD20262009",
+      "product_name": "烟草花叶病毒衣壳蛋白核酸干扰素",
+      "holder": "硅羿科技（上海）有限公司",
+      "formulation": "母药",
+      "composition": "烟草花叶病毒衣壳蛋白核酸干扰素65%",
+      "toxicity_in_registration_table": "微毒",
+      "product_category_in_registration_table": "杀菌剂",
+      "technical_material": true,
+      "uses": [],
+      "current_registration_status": "unknown",
+      "registration_valid_until": null,
+      "status_note": "已核对公告及核准标签，未连接当前登记库；登记当前有效性、撤销、延续及变更尚未复核。",
+      "announcement_date": "2026-05-11",
+      "approval_fact_verified_on": "2026-10-27",
+      "label_requirements_raw": "",
+      "label_precautions_raw": "1.\n生产操作：建议操作人员佩戴自吸过滤式防尘口罩，戴化学安全防护眼镜，穿透气型防护\n服，戴防化学品手套。远离火种，热源，工作场所严禁吸烟、进食、饮水。避免与氧化剂或\n强酸、强碱类物品混合，注意保持工作环境的洁净，加强对环境空气中微生物和酶量的监测，\n及时对设备和操作环境进行消毒处理。\n2.\n开启包装物时使用合适的安全防护用品。\n3.\n设备检测\n时应穿工作服、戴手套、应戴眼罩和面罩，在安装时应戴防尘口罩。\n4.\n灭火紧急措施：一旦\n失火，可用二氧化碳、干粉、泡沫或沙土作为灭火剂。消防人员须佩戴防毒面具、穿全身消\n防服、消防防护靴、正压自给式呼吸器等，在上风向灭火。出口应始终保持清洁和畅通，必\n要时采取堵漏或隔离措施，预防次生灾害扩大。\n5.\n泄漏处理措施：小量泄漏：用洁净的铲子\n收集于干燥、洁净、有盖的容器中，运至废物处理场所；被污染地面用肥皂或洗涤剂刷洗，\n经稀释的污水放入废水系统。大量泄漏：收集回收或运至废物处理场所处置，防止污染到水\n源或下水道。\n6.\n农药包装废弃物不得随意丢弃或自行处理，应及时交回农药经营者或农药包\n装废弃物回收站。\n7.\n儿童、孕妇、哺乳期妇女和过敏者避免接触。",
+      "label_quality_guarantee_raw": "2\n年",
+      "safe_interval_raw": null,
+      "sources": {
+        "announcement_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202605/t20260520_6484333.htm",
+        "registration_table_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202605/P020260520564857873462.ofd",
+        "label_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202605/P020260520564857873462.ofd",
+        "table_sha256": "4d4cca427cf0a257e3e52faa824032ec3497b2be96d9dbb25333c9797d818d90",
+        "label_sha256": "4d4cca427cf0a257e3e52faa824032ec3497b2be96d9dbb25333c9797d818d90",
+        "table_locator": "附件1，第2页",
+        "label_locator": "附件2，第5页；登记证号：PD20262009",
+        "label_version": "随第1019号公告公布的核准标签；未核对后续版本"
+      },
+      "safe_interval_note": "所读取标签未明确单列安全间隔期，留空，不代表0天；需结合当前有效标签复核。",
+      "review_status": "official_publication_transcribed_pending_agronomic_and_current_registry_review"
+    }
+  ],
+  "sources": [
+    {
+      "announcement": "中华人民共和国农业农村部公告  第1019号",
+      "page_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202605/t20260520_6484333.htm",
+      "attachment_title": "第1019号.ofd",
+      "url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202605/P020260520564857873462.ofd",
+      "filename": "7-0.ofd",
+      "http_status": 200,
+      "bytes": 750683,
+      "sha256": "4d4cca427cf0a257e3e52faa824032ec3497b2be96d9dbb25333c9797d818d90"
+    },
+    {
+      "announcement": "中华人民共和国农业农村部公告 第880号",
+      "page_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/t20251118_6478977.htm",
+      "attachment_title": "附件1  新农药产品登记信息.xls",
+      "url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118315185644382.xls",
+      "filename": "11-0.xls",
+      "http_status": 200,
+      "bytes": 33792,
+      "sha256": "94d0b0777880a2c38a9c652291c70cb604e1fb3f55c1b8dc6bd146300af96a36"
+    },
+    {
+      "announcement": "中华人民共和国农业农村部公告 第880号",
+      "page_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/t20251118_6478977.htm",
+      "attachment_title": "附件2 经核准的标签.doc",
+      "url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118315186269661.doc",
+      "filename": "11-1.doc",
+      "http_status": 200,
+      "bytes": 175847,
+      "sha256": "979e57befad1cbef96808b21e4223d2fc16d231ade5031b03119f1b02e81cfda"
+    },
+    {
+      "announcement": "中华人民共和国农业农村部公告 第910号",
+      "page_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/t20251118_6478979.htm",
+      "attachment_title": "附件1  新农药产品登记信息.xls",
+      "url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118319593854561.xls",
+      "filename": "104-0.xls",
+      "http_status": 200,
+      "bytes": 32768,
+      "sha256": "bb4e9d20b86810e5b8501393324f5124ceb59f1bf4a9e777ae7dade8c6d8201a"
+    },
+    {
+      "announcement": "中华人民共和国农业农村部公告 第910号",
+      "page_url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/t20251118_6478979.htm",
+      "attachment_title": "附件2  经核准的新农药产品标签.doc",
+      "url": "https://www.moa.gov.cn/govpublic/ZZYGLS/202511/P020251118319594619353.doc",
+      "filename": "104-1.doc",
+      "http_status": 200,
+      "bytes": 33384,
+      "sha256": "18af3489e623b524fae592f29fa8c235757895b6e7e6118af4b9744321e4f59b"
+    }
+  ]
+}

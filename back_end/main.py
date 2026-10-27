@@ -15,6 +15,8 @@ import agent
 import llm
 from database import Base, engine, get_db, SessionLocal
 from models import Case, Conversation, Message, Recheck
+from pesticides import CheckRequest, check_registration
+from knowledge import SearchRequest, AssistRequest, search as search_wheat, assist as assist_wheat
 
 
 def _ensure_case_columns():
@@ -176,6 +178,21 @@ def _save_image(image_bytes: bytes, content_type: str, filename: str) -> str:
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.post("/api/pesticides/check")
+def pesticide_check(req: CheckRequest):
+    return check_registration(req)
+
+
+@app.post("/api/knowledge/search")
+def knowledge_search(req: SearchRequest):
+    return search_wheat(req.query)
+
+
+@app.post("/api/knowledge/assist")
+def knowledge_assist(req: AssistRequest):
+    return assist_wheat(req.description, req.distribution, req.stage)
 
 
 @app.post("/chat", response_model=ChatResponse)
@@ -547,4 +564,10 @@ def history_rechecks(case_id: int, db: Session = Depends(get_db)):
         )
         for r in rechecks
     ]
+
+
+# Mount last: API routes take precedence. One origin avoids extra frontend setup.
+_frontend = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "front_end"))
+if os.path.isdir(_frontend):
+    app.mount("/", StaticFiles(directory=_frontend, html=True), name="farmer_frontend")
 

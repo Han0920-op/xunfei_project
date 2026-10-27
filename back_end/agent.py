@@ -15,6 +15,7 @@ from typing import Iterator, Optional
 import config
 import llm
 import tools
+from pesticides import format_check_answer
 
 # 输出格式说明（追加到系统提示词末尾，告诉模型怎么用工具）。
 _DECISION_PROTOCOL = (
@@ -75,6 +76,10 @@ def _iter(messages: list[dict]) -> Iterator[dict]:
             yield {"type": "tool_call", "tool": name, "args": args}
             result = tools.execute(name, args)
             yield {"type": "tool_result", "tool": name, "result": result}
+            if name == "check_pesticide":
+                # Registration verdicts are program facts, not model paraphrases.
+                yield {"type": "delta", "content": format_check_answer(result)}
+                return
             # 把「模型的调用决策」和「工具返回结果」都拼回上下文，让模型基于结果继续。
             conversation.append({"role": "assistant", "content": reply})
             conversation.append({"role": "user", "content": f"【工具执行结果】\n{result}"})

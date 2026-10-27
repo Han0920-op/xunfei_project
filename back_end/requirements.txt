@@ -3,3 +3,6 @@ uvicorn[standard]
 requests
 python-dotenv
 sqlalchemy
+python-multipart
+pydantic>=2,<3
+websocket-client

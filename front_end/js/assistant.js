@@ -1,5 +1,5 @@
-/* Frontend demonstration adapter. Replace this boundary with validated backend
- * responses later; no network, real diagnosis, OCR or registration lookup here. */
+/* Guided intake remains a demo. Non-DEMO registration numbers call the backend
+ * reviewed-snapshot checker; no diagnosis or OCR claims. */
 (() => {
   "use strict";
   const S = window.FarmerStore;
@@ -14,11 +14,11 @@
     },
     number: {
       text: "请找到包装上的“农药登记证号”，把号码发给我。",
-      hint: "也可以先拍清楚包装标签。当前演示不能读取标签，需要你手动确认号码。",
+      hint: "也可以先拍清楚包装标签，目前需要你手动确认号码。只将登记号、作物和防治对象发送到核对服务。",
     },
     target: {
       text: "你准备用它防治什么？还没弄清原因也可以如实说。",
-      choices: ["白粉病", "蚜虫", "还没确定"],
+      choices: ["赤霉病", "白粉病", "条锈病", "蚜虫", "还没确定"],
     },
     followup: {
       text: "和上次相比，现在看起来怎么样？",
@@ -77,6 +77,7 @@
       t.facts.stage === "不清楚" || t.facts.distribution === "还没看清";
     const description = t.facts.description || "";
     return message("result", {
+      investigation: true,
       heading: unknown
         ? "还需要补一点现场信息"
         : "先补拍近景和全株，帮助分清原因",
@@ -87,6 +88,23 @@
       medicine: "原因还没确认，先不要依据这条示例回复选择农药。",
       explanation:
         "这是前端示例回复，没有识别你的照片或检索农技资料。实际判断需结合照片、生育期、发生程度和可追溯依据。",
+      actions: ["photo", "medicine", "action", "schedule", "summary"],
+    });
+  }
+  function knowledgeResult(t) {
+    const k = t.facts.knowledge;
+    const answer = t.facts.observationAnswer || "未补充";
+    return message("result", {
+      heading:
+        answer === "没看到"
+          ? "这个特征没看到，先不要按相似病名判断"
+          : "现场细节记下了，先留好检查依据",
+      summary: `你补充：${answer}。仅凭当前描述不能确定病因，也不能判断是否需要打药。`,
+      now: "补拍异常部位近景和全株；若异常扩大，带上照片及实际处理记录请农技人员复核。",
+      medicine: "知识文档的相似描述不等于用药依据。手里有药可另行核对登记号。",
+      explanation: k.notice,
+      knowledge: k,
+      sourceLabel: "知识库观察参考 · 待农技审校 · 未识别图片",
       actions: ["photo", "medicine", "action", "schedule", "summary"],
     });
   }
@@ -169,7 +187,13 @@
     });
     t.updatedAt = new Date().toISOString();
     t.archived = false;
-    if (/中毒|误服|人员暴露|喝了农药/.test(text)) {
+    const cropInjury =
+      /(?:麦苗|小麦|麦子|叶片|植株|苗).{0,16}(?:中毒|药害)/.test(text);
+    const personalExposure =
+      /误服|人员暴露|喝了农药|误食农药|(?:我|人|孩子|家人|工人).{0,10}中毒/.test(
+        text,
+      );
+    if (personalExposure || (/中毒/.test(text) && !cropInjury)) {
       t.step = "result";
       t.messages.push(
         message("result", {
@@ -254,7 +278,21 @@
       }
       t.facts.registration = text
         .replace(/^.*?登记(?:证)?号[：:\s]*/, "")
-        .trim();
+        .trim()
+        .toUpperCase();
+      if (
+        !/^DEMO-/i.test(t.facts.registration) &&
+        !/^(?:PD|EX|LS)\d{6,12}$/.test(t.facts.registration)
+      ) {
+        t.messages.push(
+          message("question", {
+            step: "number",
+            text: "这个号码格式还不完整，请只输入包装上的农药登记证号。",
+            hint: "目前支持 PD、EX 或 LS 开头的完整编号。不要填写生产许可证号或商品条码。",
+          }),
+        );
+        return t;
+      }
       t.step = "target";
       t.messages.push(question("target"));
       return t;
@@ -285,6 +323,12 @@
       t.messages.push(diseaseResult(t));
       return t;
     }
+    if (t.step === "knowledge_followup") {
+      t.facts.observationAnswer = text || "补充了照片，文字尚未确认";
+      t.step = "result";
+      t.messages.push(knowledgeResult(t));
+      return t;
+    }
     if (t.step === "result") {
       if (input.photo) {
         t.facts.additionalPhoto = input.photo.id;
@@ -300,19 +344,14 @@
         t.messages.push(question("number"));
       } else {
         t.facts.additionalNote = text;
-        t.messages.push(
-          message("note", {
-            text: "补充情况记下了。若异常继续扩大或始终无法判断，建议带上照片和记录请农技人员复核。",
-            actions: ["photo", "medicine", "summary"],
-          }),
-        );
+        t.messages.push(diseaseResult(t));
       }
       return t;
     }
     return t;
   }
-  const respond = (t, input, signal) =>
-    new Promise((resolve, reject) => {
+  const respond = async (t, input, signal) => {
+    const next = await new Promise((resolve, reject) => {
       if (signal?.aborted) {
         reject(new DOMException("Aborted", "AbortError"));
         return;
@@ -331,6 +370,59 @@
       }, 220);
       signal?.addEventListener("abort", abort, { once: true });
     });
+    const last = next.messages.at(-1);
+    if (last?.investigation) {
+      const k = await window.KnowledgeClient.assist(next.facts, signal);
+      next.facts.knowledge = k;
+      if (
+        k.status === "found" &&
+        k.results.length &&
+        typeof k.next_question === "string" &&
+        Array.isArray(k.choices)
+      ) {
+        next.step = "knowledge_followup";
+        next.messages[next.messages.length - 1] = message("question", {
+          step: "knowledge_followup",
+          text: k.next_question,
+          hint: "参考你上传的知识文档补问，尚未识别图片或确认病因。看不清也可以直接说。",
+          choices: k.choices,
+          knowledge: k,
+        });
+      } else {
+        next.messages[next.messages.length - 1] = {
+          ...last,
+          knowledge: k,
+          sourceLabel:
+            k.status === "no_match"
+              ? "未检索到足够相关的资料 · 未识别图片"
+              : "知识检索未完成 · 未识别图片",
+          explanation: k.notice,
+        };
+      }
+    }
+    if (last?.type === "check" && !/^DEMO-/i.test(next.facts.registration)) {
+      const r = await window.PesticideClient.check(
+        next.facts.registration,
+        next.facts.target,
+        signal,
+      );
+      next.messages[next.messages.length - 1] = message("check", {
+        ...last,
+        heading: r.heading,
+        summary: r.summary,
+        tone: r.status === "mismatch" ? "danger" : "caution",
+        checks: r.checks,
+        explanation: r.explanation,
+        verification: r,
+        now: r.next_steps?.join(" "),
+        sourceLabel:
+          r.mode === "official_announcement_snapshot"
+            ? "官方公告登记资料 · 当前有效性待核实"
+            : "人工核验登记快照 · 非官方实时查询",
+      });
+    }
+    return next;
+  };
   window.FarmerAssistant = {
     create,
     startMedicine,
