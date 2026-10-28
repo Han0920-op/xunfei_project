@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import json
 import ssl
+import time
 from datetime import datetime
 from time import mktime
 from urllib.parse import urlencode, urlparse
@@ -84,42 +85,46 @@ def understand_image(image_bytes: bytes, question: str) -> str:
         raise VisionError("缺少图片理解所需配置：XFYUN_APP_ID / XFYUN_API_KEY / XFYUN_API_SECRET")
 
     image_base64 = base64.b64encode(image_bytes).decode("utf-8")
+    ws_param = Ws_Param(config.XFYUN_APP_ID, config.XFYUN_API_KEY, config.XFYUN_API_SECRET, IMAGE_UNDERSTANDING_URL)
+    deadline = time.monotonic() + 45
+    connection = None
     answer_parts = []
-    error_msg = []
-
-    def on_message(ws, message):
-        data = json.loads(message)
-        code = data["header"]["code"]
-        if code != 0:
-            error_msg.append(f"code={code}: {data}")
-            ws.close()
-            return
-        choices = data["payload"]["choices"]
-        status = choices["status"]
-        answer_parts.append(choices["text"][0]["content"])
-        if status == 2:
-            ws.close()
-
-    def on_error(ws, error):
-        error_msg.append(str(error))
-
-    def on_open(ws):
-        ws.send(json.dumps(gen_params(config.XFYUN_APP_ID, question, image_base64)))
-
-    ws_param = Ws_Param(
-        config.XFYUN_APP_ID,
-        config.XFYUN_API_KEY,
-        config.XFYUN_API_SECRET,
-        IMAGE_UNDERSTANDING_URL,
-    )
-    ws = websocket.WebSocketApp(
-        ws_param.create_url(),
-        on_message=on_message,
-        on_error=on_error,
-        on_open=on_open,
-    )
-    ws.run_forever(sslopt={"cert_reqs": ssl.CERT_REQUIRED})
-
-    if error_msg:
-        raise VisionError(error_msg[0])
-    return "".join(answer_parts)
+    try:
+        connection = websocket.create_connection(
+            ws_param.create_url(), timeout=15, sslopt={"cert_reqs": ssl.CERT_REQUIRED},
+        )
+        connection.send(json.dumps(gen_params(config.XFYUN_APP_ID, question, image_base64)))
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise VisionError("图片理解超时，请稍后重试。")
+            connection.settimeout(min(remaining, 15))
+            raw = connection.recv()
+            if not raw:
+                raise VisionError("图片理解未返回完整结果，请重试。")
+            data = json.loads(raw)
+            if data["header"]["code"] != 0:
+                raise VisionError("图片理解接口未成功完成请求，请检查配置或稍后重试。")
+            choices = data["payload"]["choices"]
+            content = choices["text"][0]["content"]
+            if not isinstance(content, str):
+                raise ValueError("invalid content")
+            answer_parts.append(content)
+            if sum(map(len, answer_parts)) > 20000:
+                raise VisionError("图片理解返回内容异常，请重试。")
+            if choices["status"] == 2:
+                answer = "".join(answer_parts).strip()
+                if not answer:
+                    raise VisionError("图片理解没有返回可用观察。")
+                return answer
+    except VisionError:
+        raise
+    except Exception:
+        # Signed URLs and provider errors can carry credentials; keep them private.
+        raise VisionError("图片理解暂时无法完成，请检查服务配置或稍后重试。") from None
+    finally:
+        if connection is not None:
+            try:
+                connection.close()
+            except Exception:
+                pass

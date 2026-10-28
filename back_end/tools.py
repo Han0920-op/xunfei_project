@@ -4,19 +4,17 @@
 模型通过「Prompt 驱动 ReAct」决定是否调用工具，本文件只负责「注册 + 执行」，
 不关心模型怎么决策（决策循环在 agent.py）。
 
-天气数据源：优先高德天气真实 API（需 WEATHER_API_KEY），未配置 / 请求失败 /
-地点未收录时回退到内置「模拟」数据，并在结果里带 source 字段标注。
+天气数据源：高德真实预报（需 WEATHER_API_KEY）。未配置、失败、地点或日期不明时
+返回明确不可用状态，绝不回退到模拟天气。
 """
 
 import json
 from dataclasses import dataclass
 from typing import Callable
 
-import requests
-
-import config
 from pesticides import check_pesticide
 from knowledge import search_knowledge
+from weather import get_weather
 
 
 @dataclass
@@ -72,107 +70,6 @@ def execute(name: str, args: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
-# 天气工具
-# ---------------------------------------------------------------------------
-# 主要小麦产区 + 常用城市 → 高德行政区编码（adcode）。查不到就走模拟。
-_LOCATION_ADCODE = {
-    "郑州": "410100", "河南": "410000",
-    "济南": "370100", "山东": "370000",
-    "石家庄": "130100", "河北": "130000",
-    "南京": "320100", "江苏": "320000",
-    "合肥": "340100", "安徽": "340000",
-    "西安": "610100", "陕西": "610000",
-    "武汉": "420100", "湖北": "420000",
-    "北京": "110000", "天津": "120000",
-    "上海": "310000", "重庆": "500000",
-    "成都": "510100", "四川": "510000",
-    "太原": "140100", "山西": "140000",
-    "兰州": "620100", "甘肃": "620000",
-}
-
-
-def _mock_weather(location: str) -> str:
-    """内置的小麦产区模拟天气，字段与真实源对齐，明确标注「模拟」。"""
-    return json.dumps(
-        {
-            "location": location,
-            "weather": "晴间多云",
-            "temperature": "18~26℃",
-            "wind": "东南风 2-3级",
-            "precipitation": "未来3天无明显降水",
-            "forecast": [
-                {"date": "今天", "day": "晴", "temp": "18~26℃"},
-                {"date": "明天", "day": "多云", "temp": "17~24℃"},
-                {"date": "后天", "day": "阴", "temp": "16~23℃"},
-            ],
-            "source": "模拟",
-            "note": "未配置真实天气密钥或查询失败，返回内置模拟数据",
-        },
-        ensure_ascii=False,
-    )
-
-
-def _precipitation_text(casts: list) -> str:
-    parts = []
-    for c in casts:
-        wx = f"{c.get('dayweather', '')}/{c.get('nightweather', '')}"
-        parts.append(f"{c.get('date', '')} {wx}")
-    return "未来几天：" + "；".join(parts)
-
-
-def _real_weather(location: str, adcode: str) -> str:
-    """调用高德天气（extensions=all 返回预报），裁剪成小麦管理关心的字段。"""
-    url = "https://restapi.amap.com/v3/weather/weatherInfo"
-    try:
-        resp = requests.get(
-            url,
-            params={"city": adcode, "key": config.WEATHER_API_KEY, "extensions": "all"},
-            timeout=10,
-        )
-    except requests.RequestException as exc:
-        raise RuntimeError(f"请求高德天气失败：{exc}") from exc
-    resp.encoding = "utf-8"
-    data = resp.json()
-    if data.get("status") != "1":
-        raise RuntimeError(data.get("info", "高德天气接口返回错误"))
-    forecast = (data.get("forecasts") or [{}])[0]
-    casts = forecast.get("casts") or []
-    if not casts:
-        raise RuntimeError("天气接口未返回预报数据")
-
-    today = casts[0]
-    result = {
-        "location": forecast.get("city") or location,
-        "weather": f"白天{today.get('dayweather', '')} / 夜间{today.get('nightweather', '')}",
-        "temperature": f"{today.get('nighttemp', '')}~{today.get('daytemp', '')}℃",
-        "wind": f"{today.get('daywind', '')} {today.get('daypower', '')}级",
-        "precipitation": _precipitation_text(casts),
-        "forecast": [
-            {
-                "date": c.get("date", ""),
-                "day": c.get("dayweather", ""),
-                "temp": f"{c.get('nighttemp', '')}~{c.get('daytemp', '')}℃",
-            }
-            for c in casts[:3]
-        ],
-        "source": "实时",
-    }
-    return json.dumps(result, ensure_ascii=False)
-
-
-def get_weather(location: str, date: str = "today") -> str:
-    """查询某地天气，返回 JSON 字符串。真实源失败时回退到模拟并标注。"""
-    location = (location or "").strip()
-    adcode = _LOCATION_ADCODE.get(location)
-    if adcode and config.WEATHER_API_KEY:
-        try:
-            return _real_weather(location, adcode)
-        except Exception:
-            pass  # 任何失败都回退到模拟，绝不让天气接口中断整个诊断
-    return _mock_weather(location or "未知地区")
-
-
-# ---------------------------------------------------------------------------
 # 土壤墒情工具（当前仅模拟数据）
 # ---------------------------------------------------------------------------
 def get_soil(location: str) -> str:
@@ -212,12 +109,12 @@ register(Tool(
 
 register(Tool(
     name="get_weather",
-    description="查询指定地点（中文城市名，如「郑州」）的天气，返回温度、天气现象、降水、风力，用于判断是否适合浇水/施肥/打药。",
+    description="查询用户确认地点和日期的真实高德天气预报。支持已收录城市（如郑州、济南）或用户确认的六位市县行政区编码；缺地点或仅有省名应补问，不能猜地点。date支持today/tomorrow或未来三天内YYYY-MM-DD。不含降水量、阵风及田间实测，不能据此认定适合施药。失败明确unavailable，绝不返回模拟数据。",
     parameters={
         "type": "object",
         "properties": {
-            "location": {"type": "string", "description": "中文城市名或省名，如 郑州 / 河南"},
-            "date": {"type": "string", "description": "可选，默认 today；可为 today/tomorrow"},
+            "location": {"type": "string", "description": "用户确认的已收录城市名，如郑州，或六位市县行政区编码；仅省名不足"},
+            "date": {"type": "string", "description": "可选，默认today；支持today、tomorrow或未来三天内YYYY-MM-DD日期"},
         },
         "required": ["location"],
     },

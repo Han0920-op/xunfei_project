@@ -42,7 +42,8 @@ def run():
     assert "get_weather" in _system_text(calls, 0), "系统提示词未包含工具清单"
     second = "\n".join(m.get("content", "") for m in calls[1])
     assert "【工具执行结果】" in second, "工具结果未拼回第二轮上下文"
-    assert "模拟" in second, "无密钥时应回退模拟天气"
+    assert '"status": "unavailable"' in second, "无密钥时必须明确天气不可用"
+    assert '"source": "模拟"' not in second, "天气不得回退模拟数据"
     print("[PASS] 1 tool -> answer 循环，工具结果被拼回上下文")
 
     # 场景 2：连续要工具 -> 循环超限强制收尾

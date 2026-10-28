@@ -776,6 +776,17 @@ svg {
   min-width: 0;
   max-width: calc(100% - 40px);
 }
+.agent-answer {
+  line-height: 1.9;
+  color: #405a35;
+  overflow-wrap: anywhere;
+}
+.agent-evidence .knowledge-quote {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line, #dce4d5);
+  overflow-wrap: anywhere;
+}
 .speaker {
   display: block;
   color: #92a184;

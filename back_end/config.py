@@ -7,7 +7,7 @@ load_dotenv()
 SPARK_API_PASSWORD = os.getenv("SPARK_API_PASSWORD", "")
 SPARK_BASE_URL = os.getenv("SPARK_BASE_URL", "https://spark-api-open.xf-yun.com/v1")
 SPARK_MODEL = os.getenv("SPARK_MODEL", "generalv3.5")
-SPARK_TEMPERATURE = float(os.getenv("SPARK_TEMPERATURE", "0.7"))
+SPARK_TEMPERATURE = float(os.getenv("SPARK_TEMPERATURE", "0.3"))
 SPARK_MAX_TOKENS = int(os.getenv("SPARK_MAX_TOKENS", "2048"))
 XFYUN_APP_ID = os.getenv("XFYUN_APP_ID", "")
 XFYUN_API_KEY = os.getenv("XFYUN_API_KEY", "")
@@ -19,7 +19,7 @@ SYSTEM_PROMPT = os.getenv(
 )
 
 # ---------- 工具调用相关 ----------
-# 天气数据源密钥（高德天气 Web 服务 key）。留空则自动回退到内置「模拟」天气数据。
+# 天气数据源密钥（高德天气 Web 服务 key）。留空或失败明确返回不可用，不用模拟天气。
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY", "")
 # Agent 编排循环最多调用几轮工具，防止模型反复调用工具导致死循环。
 MAX_TOOL_ITERATIONS = int(os.getenv("MAX_TOOL_ITERATIONS", "4"))
