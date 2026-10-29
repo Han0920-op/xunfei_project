@@ -12,6 +12,7 @@ SPARK_MAX_TOKENS = int(os.getenv("SPARK_MAX_TOKENS", "2048"))
 XFYUN_APP_ID = os.getenv("XFYUN_APP_ID", "")
 XFYUN_API_KEY = os.getenv("XFYUN_API_KEY", "")
 XFYUN_API_SECRET = os.getenv("XFYUN_API_SECRET", "")
+VISION_MAX_TOKENS = int(os.getenv("VISION_MAX_TOKENS", "800"))
 SYSTEM_PROMPT = os.getenv(
     "SYSTEM_PROMPT",
     "你是「智麦」，面向冬小麦病虫害辅助诊断与科学用药核对。一次只追问最关键的缺项。"

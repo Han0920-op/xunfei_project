@@ -776,7 +776,8 @@ svg {
   min-width: 0;
   max-width: calc(100% - 40px);
 }
-.agent-answer {
+.agent-answer,
+.streaming-answer {
   line-height: 1.9;
   color: #405a35;
   overflow-wrap: anywhere;
@@ -2299,4 +2300,17 @@ dialog footer {
   .home-workspace .simple-promise {
     order: 6;
   }
+}
+
+.streaming-message[hidden] {
+  display: none;
+}
+#streamingAnswer {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.streaming-message small {
+  display: block;
+  margin-top: 12px;
+  color: var(--muted);
 }

@@ -65,7 +65,7 @@ def gen_params(app_id, question, image_base64):
                 "domain": "imagev3",
                 "temperature": 0.5,
                 "top_k": 4,
-                "max_tokens": 2028,
+                "max_tokens": min(max(config.VISION_MAX_TOKENS, 200), 2028),
                 "auditing": "default",
             }
         },

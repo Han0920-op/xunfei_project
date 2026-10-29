@@ -99,6 +99,52 @@ class FarmerFrontendTests(unittest.TestCase):
         expect(self.page.locator('.agent-evidence')).to_contain_text('叶片细节不足')
         self.assertIn('服务及模型', self.page.locator('.composer-caption').inner_text())
 
+    def start_controlled_stream(self):
+        self.page.evaluate("""() => {
+          window.fetch = async () => new Response(new ReadableStream({
+            start(controller) { window.__streamController = controller; }
+          }), {headers:{'Content-Type':'text/event-stream'}});
+          window.__push = events => window.__streamController.enqueue(new TextEncoder().encode(events.map(e=>'data: '+JSON.stringify(e)+'\\n\\n').join('')));
+        }""")
+
+    def test_live_tokens_visible_before_completion_and_not_saved_twice(self):
+        self.go()
+        self.start_controlled_stream()
+        self.send('边生成边看')
+        expect(self.page.locator('#sendButton')).to_be_disabled()
+        self.page.evaluate("__push([{type:'answer_delta',content:'第一段中文。'}])")
+        expect(self.page.locator('#streamingAnswer')).to_be_visible()
+        expect(self.page.locator('#streamingAnswer')).to_have_text('第一段中文。')
+        self.assertEqual(self.page.evaluate('FarmerStore.records().length'), 0)
+        self.page.evaluate("__push([{type:'answer_delta',content:'<img src=x onerror=alert(1)>第二段。'}])")
+        expect(self.page.locator('#streamingAnswer img')).to_have_count(0)
+        expect(self.page.locator('#streamingAnswer')).to_contain_text('第二段')
+        self.page.evaluate("__push([{type:'answer',content:'第一段中文。<img src=x onerror=alert(1)>第二段。'},{type:'done'}]); __streamController.close()")
+        self.answer()
+        expect(self.page.locator('.agent-answer')).to_have_text('第一段中文。<img src=x onerror=alert(1)>第二段。')
+        self.assertEqual(self.page.evaluate('FarmerStore.records()[0].messages.length'), 2)
+
+    def test_stop_and_stream_error_retract_preview_and_preserve_draft(self):
+        for stop in [True, False]:
+            self.go()
+            self.start_controlled_stream()
+            self.page.locator('#photoInput').set_input_files(str(PHOTO))
+            expect(self.page.locator('.attachment')).to_be_visible()
+            self.send('保留我的输入')
+            self.page.wait_for_function('Boolean(window.__streamController)')
+            self.page.evaluate("__push([{type:'answer_delta',content:'尚未完成的内容'}])")
+            expect(self.page.locator('#streamingAnswer')).to_have_text('尚未完成的内容')
+            if stop:
+                self.page.get_by_role('button', name='停止生成', exact=True).click()
+                expect(self.page.locator('#sendError')).to_contain_text('已停止生成')
+            else:
+                self.page.evaluate("__push([{type:'error',message:'响应中断'}]); __streamController.close()")
+                expect(self.page.locator('#sendError')).to_contain_text('响应中断')
+            expect(self.page.locator('#streamingAnswer')).to_have_count(0)
+            expect(self.page.locator('#messageInput')).to_have_value('保留我的输入')
+            expect(self.page.locator('.attachment')).to_be_visible()
+            self.assertEqual(self.page.evaluate('FarmerStore.records().length'), 0)
+
     def test_weather_tool_result_is_shown_and_no_client_fabrication(self):
         events = [{'type':'tool_call','tool':'get_weather','args':{'location':'郑州'}}, {'type':'tool_result','tool':'get_weather','result':{'status':'unavailable','message':'天气密钥未配置，本次没有取得真实天气。'}}, {'type':'answer','content':'我暂时查不到真实天气，不能据此判断施药窗口。'}, {'type':'done'}]
         self.mock(events)
@@ -109,6 +155,22 @@ class FarmerFrontendTests(unittest.TestCase):
         expect(self.page.locator('.agent-evidence')).to_contain_text('没有取得真实天气')
         self.assertEqual(self.page.evaluate('FarmerStore.records()[0].messages.at(-1).toolCalls[0].tool'), 'get_weather')
         self.assertFalse(any('/api/knowledge/assist' in u or '/api/pesticides/check' in u for u in self.requests))
+
+    def test_answer_review_is_saved_shown_and_exported_with_observations(self):
+        self.mock([{'type':'vision_result','status':'ok','content':'幼苗状叶片发黄'}, {'type':'answer_review','status':'revised','issue_codes':['history_conflict']}, {'type':'answer','content':'这张照片不能按成熟收获处理。'}, {'type':'done'}])
+        self.go()
+        self.send('帮我看第二张图')
+        self.answer()
+        self.page.reload()
+        self.page.get_by_text('本次查看与查询依据', exact=True).click()
+        expect(self.page.locator('.agent-evidence')).to_contain_text('已调整回答')
+        expect(self.page.locator('.agent-evidence')).to_contain_text('不代表农技审校')
+        self.assertEqual(self.page.evaluate('FarmerStore.records()[0].messages.at(-1).review.status'), 'revised')
+        with self.page.expect_download() as download:
+            self.page.get_by_role('button', name='下载问题摘要').click()
+        exported = Path(download.value.path()).read_text()
+        self.assertIn('图片观察（ok，非确诊）：幼苗状叶片发黄', exported)
+        self.assertIn('history_conflict', exported)
 
     def test_pending_user_bubble_and_photo_are_ephemeral_until_done(self):
         pending = []

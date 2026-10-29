@@ -15,6 +15,7 @@ from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 import uvicorn
+import requests
 from playwright.sync_api import sync_playwright, expect
 from PIL import Image
 import io
@@ -27,7 +28,55 @@ import weather
 from main import app
 
 
+def checked(text):
+    return json.dumps({'action':'answer','verdict':'supported','checks':dict(temporal_consistency=True,current_image_priority=True,health_claim_supported=True,action_supported=True),'issue_codes':[],'content':text}, ensure_ascii=False)
+
+
 class FreeChatIntegration(unittest.TestCase):
+    def test_http_first_delta_precedes_model_completion(self):
+        release = threading.Event()
+        def upstream(_messages):
+            yield '第一段已经生成。'
+            if not release.wait(8):
+                raise RuntimeError('test did not receive an incremental event')
+            yield '第二段完成。'
+        with socket.socket() as sock:
+            sock.bind(('127.0.0.1', 0)); port = sock.getsockname()[1]
+        server = uvicorn.Server(uvicorn.Config(app, host='127.0.0.1', port=port, log_level='error', lifespan='off'))
+        with patch.object(config, 'SPARK_API_PASSWORD', 'test-only'), patch.object(dialogue.llm, 'chat_stream', side_effect=upstream) as model:
+            thread = threading.Thread(target=server.run, daemon=True); thread.start()
+            try:
+                deadline = time.monotonic() + 10
+                while not server.started:
+                    if time.monotonic() > deadline: self.fail('test server did not start')
+                    time.sleep(.02)
+                with requests.post(f'http://127.0.0.1:{port}/api/agent/chat', data={'message':'请说明下一步','history':'[]'}, stream=True, timeout=(2,5)) as response:
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(response.headers['X-Accel-Buffering'], 'no')
+                    received = []
+                    lines = response.iter_lines(chunk_size=1)
+                    for line in lines:
+                        if not line.startswith(b'data:'): continue
+                        event = json.loads(line[5:])
+                        received.append(event)
+                        if event['type'] == 'answer_delta':
+                            self.assertFalse(release.is_set())
+                            self.assertEqual(event['content'], '第一段已经生成。')
+                            release.set()
+                            break
+                    self.assertTrue(release.is_set(), 'first delta must arrive while upstream is still waiting')
+                    for line in lines:
+                        if line.startswith(b'data:'):
+                            received.append(json.loads(line[5:]))
+                    self.assertEqual(received[-1]['type'], 'done')
+                    self.assertEqual(''.join(e['content'] for e in received if e['type']=='answer_delta'), '第一段已经生成。第二段完成。')
+                model.assert_called_once()
+            finally:
+                release.set()
+                server.should_exit = True
+                thread.join(timeout=5)
+                self.assertFalse(thread.is_alive())
+
     def test_photo_context_weather_registration_and_missing_config(self):
         def decide(messages):
             latest = messages[-1]['content']
@@ -35,15 +84,15 @@ class FreeChatIntegration(unittest.TestCase):
                 result = json.loads(latest.split('\n', 1)[1])
                 if result.get('provider') == '高德天气预报':
                     self.assertEqual(result['status'], 'ok')
-                    return '查到郑州明天白天多云，预报温度10~20℃。这是城市预报，不能单凭它判断可以施药。'
+                    return checked('查到郑州明天白天多云，预报温度10~20℃。这是城市预报，不能单凭它判断可以施药。')
                 self.assertEqual(result['status'], 'found')
-                return '图片观察到叶片有浅色粉状区域，资料P0038有相似描述，但尚不能确诊。请补一张异常叶片的近景。'
+                return checked('图片观察到叶片有浅色粉状区域，资料P0038有相似描述，但尚不能确诊。请补一张异常叶片的近景。')
             if 'PD20250010' in latest:
                 return json.dumps({'action':'tool','tool':'check_pesticide','args':{'registration_number':'PD20250010','target':'赤霉病'}})
             if '郑州' in latest and '天气' in latest:
                 return json.dumps({'action':'tool','tool':'get_weather','args':{'location':'郑州','date':'tomorrow'}})
             if '天气' in latest:
-                return '这块麦田在哪个市或县？确认地点后我再查询天气。'
+                return checked('这块麦田在哪个市或县？确认地点后我再查询天气。')
             if '本轮图片模型观察' in latest:
                 return json.dumps({'action':'tool','tool':'search_knowledge','args':{'query':'叶片白色粉状物'}})
             return '你可以直接补充最担心的变化，我会接着前面的照片观察看。'
@@ -70,7 +119,7 @@ class FreeChatIntegration(unittest.TestCase):
         with socket.socket() as sock:
             sock.bind(('127.0.0.1', 0)); port = sock.getsockname()[1]
         server = uvicorn.Server(uvicorn.Config(app, host='127.0.0.1', port=port, log_level='error', lifespan='off'))
-        with patch.object(config, 'SPARK_API_PASSWORD', 'test-only-key'), patch.object(config, 'WEATHER_API_KEY', 'test-only-weather'), patch.object(dialogue.llm, 'chat', side_effect=decide), patch.object(dialogue, 'understand_image', side_effect=observe), patch.object(weather.requests, 'get', return_value=WeatherResponse()) as weather_request:
+        with patch.object(config, 'SPARK_API_PASSWORD', 'test-only-key'), patch.object(config, 'WEATHER_API_KEY', 'test-only-weather'), patch.object(dialogue.llm, 'chat_stream', side_effect=decide), patch.object(dialogue, 'understand_image', side_effect=observe), patch.object(weather.requests, 'get', return_value=WeatherResponse()) as weather_request:
             thread = threading.Thread(target=server.run, daemon=True); thread.start()
             try:
                 deadline = time.monotonic() + 10

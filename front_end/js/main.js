@@ -17,6 +17,8 @@
     busy: false,
     progress: "",
     pending: null,
+    partialAnswer: "",
+    controller: null,
     pickerVersion: 0,
     photoLoading: false,
     search: "",
@@ -28,7 +30,7 @@
     return `<figure class="saved-photo"><img data-photo="${esc(p.id)}" alt="${esc(p.name || "现场照片")}" loading="lazy">${caption ? `<figcaption>${esc(caption)}</figcaption>` : ""}</figure>`;
   }
   function composer() {
-    return `<div class="composer ${!ui.record && !ui.pending ? "home-composer" : ""}"><div class="attachment" ${ui.photo && !ui.pending ? "" : "hidden"}>${ui.photo && !ui.pending ? `<img src="${ui.photoUrl}" alt="待发送的照片"><span><strong>${esc(ui.photo.name)}</strong><small>已选好，还没发送</small></span><button class="icon-button" data-action="remove-photo" aria-label="移除待发送照片" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${icon("close")}</button>` : ""}</div>${ui.photoLoading ? '<p class="reading-photo"><span class="spinner"></span>正在读取照片…</p>' : ""}<p class="error" id="fileError" role="alert">${esc(ui.fileError)}</p><form id="messageForm"><label class="sr-only" for="messageInput">描述你看到的情况</label><textarea id="messageInput" rows="2" maxlength="4000" placeholder="直接说说情况，也可以问天气或核对手里的药…" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${ui.busy ? "" : esc(ui.draft)}</textarea><div class="composer-bottom"><button type="button" class="attach-button" data-action="photo" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${icon("camera")} ${ui.photo ? "换张照片" : "添加照片"}</button><button type="submit" id="sendButton" class="button primary" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${ui.busy ? '<span class="spinner"></span>正在处理' : "发给智麦 " + icon("arrow")}</button></div></form><p class="error" id="sendError" role="alert">${esc(ui.error)}</p>${ui.error ? '<button class="text-button" data-action="retry">重新发送</button><button class="text-button" data-action="medicine">重新核对登记号</button>' : ""}<div class="composer-caption"><span>发送后，文字和所选照片将交给服务及模型处理</span><span>Shift + Enter 换行</span></div></div>`;
+    return `<div class="composer ${!ui.record && !ui.pending ? "home-composer" : ""}"><div class="attachment" ${ui.photo && !ui.pending ? "" : "hidden"}>${ui.photo && !ui.pending ? `<img src="${ui.photoUrl}" alt="待发送的照片"><span><strong>${esc(ui.photo.name)}</strong><small>已选好，还没发送</small></span><button class="icon-button" data-action="remove-photo" aria-label="移除待发送照片" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${icon("close")}</button>` : ""}</div>${ui.photoLoading ? '<p class="reading-photo"><span class="spinner"></span>正在读取照片…</p>' : ""}<p class="error" id="fileError" role="alert">${esc(ui.fileError)}</p><form id="messageForm"><label class="sr-only" for="messageInput">描述你看到的情况</label><textarea id="messageInput" rows="2" maxlength="4000" placeholder="直接说说情况，也可以问天气或核对手里的药…" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${ui.busy ? "" : esc(ui.draft)}</textarea><div class="composer-bottom"><button type="button" class="attach-button" data-action="photo" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${icon("camera")} ${ui.photo ? "换张照片" : "添加照片"}</button><button type="submit" id="sendButton" class="button primary" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${ui.busy ? '<span class="spinner"></span>正在处理' : "发给智麦 " + icon("arrow")}</button>${ui.busy ? '<button type="button" class="button secondary" data-action="stop">停止生成</button>' : ""}</div></form><p class="error" id="sendError" role="alert">${esc(ui.error)}</p>${ui.error ? '<button class="text-button" data-action="retry">重新发送</button><button class="text-button" data-action="medicine">重新核对登记号</button>' : ""}<div class="composer-caption"><span>发送后，文字和所选照片将交给服务及模型处理</span><span>Shift + Enter 换行</span></div></div>`;
   }
   function home() {
     const last = S.records().find((r) => !r.archived);
@@ -52,8 +54,11 @@
   function agentTraceHTML(m) {
     const vision = m.vision || [],
       tools = m.toolResults || [];
-    if (!vision.length && !tools.length) return "";
-    return `<details class="explanation agent-evidence"><summary>本次查看与查询依据</summary>${vision.map((v) => `<div class="knowledge-quote"><strong>图片理解 · ${v.status === "ok" ? "已返回观察" : "暂不可用"}</strong><p>${esc(v.content || "这张照片未取得可用识别结果。")}</p></div>`).join("")}${tools
+    if (!vision.length && !tools.length && !m.review) return "";
+    const reviewText = m.review
+      ? `<div class="knowledge-quote"><strong>回答自检 · ${esc({ supported: "已检查", revised: "已调整回答", insufficient: "证据不足，保留判断", unavailable: "未完成，已撤回未核实结论" }[m.review.status] || "状态未知")}</strong><p>由同一文字模型检查时间、图片与建议的一致性，不代表农技审校或确诊。</p></div>`
+      : "";
+    return `<details class="explanation agent-evidence"><summary>本次查看与查询依据</summary>${reviewText}${vision.map((v) => `<div class="knowledge-quote"><strong>图片理解 · ${v.status === "ok" ? "已返回观察" : "暂不可用"}</strong><p>${esc(v.content || "这张照片未取得可用识别结果。")}</p></div>`).join("")}${tools
       .map((t) => {
         const r = t.result || {};
         const detail =
@@ -152,6 +157,25 @@
     const p = ui.pending;
     return `<article class="message user pending-message" aria-label="本轮发送的内容"><div class="user-bubble">${p.photoUrl ? `<figure class="saved-photo"><img src="${esc(p.photoUrl)}" alt="${esc(p.photoName || "本轮照片")}"></figure>` : ""}<p>${esc(p.text || "帮我看看这张照片")}</p></div><span class="user-avatar">我</span></article>`;
   }
+  function streamingMessageHTML() {
+    if (!ui.busy) return "";
+    return `<article class="message assistant streaming-message" ${ui.partialAnswer ? "" : "hidden"}><span class="assistant-avatar">${icon("wheat")}</span><div class="assistant-content"><span class="speaker">智麦 · 正在回答</span><div id="streamingAnswer" class="streaming-answer" aria-live="off">${esc(ui.partialAnswer)}</div><small>正在生成，完成后会保存</small></div></article>`;
+  }
+  function showDelta(text) {
+    ui.partialAnswer = text;
+    const element = document.getElementById("streamingAnswer");
+    if (!element) return;
+    const nearBottom =
+      window.innerHeight + window.scrollY >=
+      document.documentElement.scrollHeight - 180;
+    element.textContent = text;
+    element.closest("article").hidden = false;
+    if (nearBottom)
+      document.getElementById("threadEnd")?.scrollIntoView({ block: "end" });
+    ui.progress = "正在生成回答…";
+    const progress = document.getElementById("agentProgress");
+    if (progress) progress.textContent = ui.progress;
+  }
   function conversation() {
     const t = ui.record || {
         title: (ui.pending?.text || "照片中的小麦情况").slice(0, 36),
@@ -161,7 +185,7 @@
         demo: false,
       },
       last = t.messages.filter((m) => m.role === "assistant").at(-1)?.id;
-    return `<section class="thread-heading"><div><a class="back-link" href="history.html">${icon("back")} 我的记录</a><h1>${esc(t.title)}</h1><p>${day(t.createdAt)} · ${t.archived ? "这次跟踪已结束" : "这次的问题，会接着记"}${t.demo ? " · 此前的演示记录" : " · 智能体对话"}</p></div>${ui.record ? `<button class="icon-button" data-action="more" aria-label="这条记录的更多操作" ${ui.busy ? "disabled" : ""}>${icon("more")}</button>` : ""}</section><section class="conversation" aria-label="问题与回答"><div class="messages" role="log" aria-live="polite">${t.messages.map((m) => messageHTML(m, m.id === last)).join("")}${pendingMessageHTML()}${ui.busy ? `<div class="thinking"><span class="spinner" aria-hidden="true"></span><span id="agentProgress" role="status">${esc(ui.progress || "智麦正在结合上下文分析…")}</span></div>` : ""}</div>${t.followupDate ? `<div class="followup-date">${icon("clock")}你计划在 ${day(t.followupDate)} 再来看看 <small>日期已保存，暂不推送通知</small></div>` : ""}${t.archived ? `<div class="closed-record">这次跟踪已结束。<button class="text-button" data-action="reopen">继续跟踪</button></div>` : `${ui.record ? `<div class="followup-tools"><button data-action="action" ${ui.busy ? "disabled" : ""}>${icon("check")}记下我做了什么</button><button data-action="schedule" ${ui.busy ? "disabled" : ""}>${icon("clock")}约个时间复查</button></div>` : ""}${composer()}`}<div id="threadEnd"></div></section>`;
+    return `<section class="thread-heading"><div><a class="back-link" href="history.html">${icon("back")} 我的记录</a><h1>${esc(t.title)}</h1><p>${day(t.createdAt)} · ${t.archived ? "这次跟踪已结束" : "这次的问题，会接着记"}${t.demo ? " · 此前的演示记录" : " · 智能体对话"}</p></div>${ui.record ? `<button class="icon-button" data-action="more" aria-label="这条记录的更多操作" ${ui.busy ? "disabled" : ""}>${icon("more")}</button>` : ""}</section><section class="conversation" aria-label="问题与回答"><div class="messages" role="log" aria-live="polite">${t.messages.map((m) => messageHTML(m, m.id === last)).join("")}${pendingMessageHTML()}${streamingMessageHTML()}${ui.busy ? `<div class="thinking"><span class="spinner" aria-hidden="true"></span><span id="agentProgress" role="status">${esc(ui.progress || "智麦正在结合上下文分析…")}</span></div>` : ""}</div>${t.followupDate ? `<div class="followup-date">${icon("clock")}你计划在 ${day(t.followupDate)} 再来看看 <small>日期已保存，暂不推送通知</small></div>` : ""}${t.archived ? `<div class="closed-record">这次跟踪已结束。<button class="text-button" data-action="reopen">继续跟踪</button></div>` : `${ui.record ? `<div class="followup-tools"><button data-action="action" ${ui.busy ? "disabled" : ""}>${icon("check")}记下我做了什么</button><button data-action="schedule" ${ui.busy ? "disabled" : ""}>${icon("clock")}约个时间复查</button></div>` : ""}${composer()}`}<div id="threadEnd"></div></section>`;
   }
   function recordState(t) {
     if (t.archived) return "已结束";
@@ -322,6 +346,8 @@
     }
     ui.retryChoice = typeof choice === "string" ? choice : undefined;
     ui.busy = true;
+    ui.partialAnswer = "";
+    ui.controller = new AbortController();
     ui.pending = {
       text,
       photoUrl: ui.photoUrl,
@@ -334,17 +360,22 @@
     let savedPhoto = null;
     try {
       if (ui.photo) savedPhoto = await S.putPhoto(ui.photo);
-      const next = await A.respond(ui.record, {
-        text,
-        photo: savedPhoto,
-        file: ui.photo,
-        onProgress: (message) => {
-          ui.progress = message;
-          const progress = document.getElementById("agentProgress");
-          if (progress) progress.textContent = message;
+      const next = await A.respond(
+        ui.record,
+        {
+          text,
+          photo: savedPhoto,
+          file: ui.photo,
+          onProgress: (message) => {
+            ui.progress = message;
+            const progress = document.getElementById("agentProgress");
+            if (progress) progress.textContent = message;
+          },
+          onDelta: showDelta,
+          choice: typeof choice === "string",
         },
-        choice: typeof choice === "string",
-      });
+        ui.controller.signal,
+      );
       S.save(next);
       ui.record = next;
       ui.draft = "";
@@ -360,6 +391,8 @@
     } finally {
       ui.busy = false;
       ui.pending = null;
+      ui.partialAnswer = "";
+      ui.controller = null;
       ui.progress = "";
       render({ scroll: Boolean(ui.record) });
     }
@@ -484,7 +517,7 @@
         .filter((m) => m.type === "agent")
         .map(
           (m) =>
-            `智麦回答：${m.text}\n${(m.toolResults || []).map((t) => `${toolTitle(t.tool)}：${JSON.stringify(t.result)}`).join("\n")}`,
+            `智麦回答：${m.text}\n${(m.vision || []).map((v) => `图片观察（${v.status}，非确诊）：${v.content}`).join("\n")}\n${(m.toolResults || []).map((t) => `${toolTitle(t.tool)}：${JSON.stringify(t.result)}`).join("\n")}\n${m.review ? `回答自检（非农技审校）：${JSON.stringify(m.review)}` : ""}`,
         ),
       ...record.actions.map((a) => `实际处理 ${a.date}：${a.note}`),
       ...record.followups.map(
@@ -542,8 +575,12 @@
     const b = e.target.closest("[data-action]");
     if (!b) return;
     const action = b.dataset.action;
-    if ((ui.busy || ui.photoLoading) && !["help", "scope"].includes(action))
+    if (
+      (ui.busy || ui.photoLoading) &&
+      !["help", "scope", "stop"].includes(action)
+    )
       return;
+    if (action === "stop") ui.controller?.abort();
     const record = b.dataset.id ? S.get(b.dataset.id) : ui.record;
     if (action === "photo") document.getElementById("photoInput").click();
     if (action === "remove-photo") {

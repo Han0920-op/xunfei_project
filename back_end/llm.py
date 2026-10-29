@@ -1,4 +1,5 @@
 import json
+import time
 
 import requests
 
@@ -64,19 +65,23 @@ def chat_stream(messages: list[dict]):
     try:
         resp = requests.post(
             _url(), json=_payload(messages, stream=True), headers=_headers(),
-            timeout=60, stream=True,
+            timeout=(5, 45), stream=True,
         )
     except requests.RequestException as exc:
         raise LLMError(f"请求大模型接口失败：{exc}") from exc
 
-    if resp.status_code != 200:
-        raise LLMError(f"大模型接口返回 {resp.status_code}：{resp.text}")
-
     # 上游是 text/event-stream 且不带 charset，requests 会默认按 ISO-8859-1 解码，
     # 中文就变成「ä½ å¥½」式乱码。这里直接读原始字节，显式用 UTF-8 解码。
     resp.encoding = "utf-8"
+    deadline = time.monotonic() + 120
+    finished = False
     try:
-        for raw in resp.iter_lines(decode_unicode=False):
+        if resp.status_code != 200:
+            raise LLMError(f"大模型接口返回 {resp.status_code}")
+        # requests defaults to buffering 512 bytes, which delays small SSE events.
+        for raw in resp.iter_lines(chunk_size=1, decode_unicode=False):
+            if time.monotonic() > deadline:
+                raise LLMError("模型响应超时")
             if not raw:
                 continue
             line = raw.decode("utf-8", errors="replace")
@@ -84,12 +89,31 @@ def chat_stream(messages: list[dict]):
                 continue
             data = line[5:].strip()
             if data == "[DONE]":
+                finished = True
                 break
             try:
-                delta = json.loads(data)["choices"][0]["delta"].get("content", "")
-            except (KeyError, IndexError, TypeError, json.JSONDecodeError):
-                continue
+                event = json.loads(data)
+                if event.get("error"):
+                    raise LLMError("模型流返回错误")
+                choices = event.get("choices", [])
+                if not choices:
+                    continue  # optional usage-only frame
+                choice = choices[0]
+                if choice.get("finish_reason") not in (None, "stop"):
+                    raise LLMError("模型回答被截断或过滤")
+                # Never expose reasoning_content from reasoning models.
+                delta = choice.get("delta", {}).get("content", "")
+                if delta is None:
+                    delta = ""  # initial/reasoning-only/finish frames may use null
+                if not isinstance(delta, str):
+                    raise LLMError("模型流格式错误")
+            except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
+                raise LLMError("模型流格式错误") from exc
             if delta:
                 yield delta
+        if not finished:
+            raise LLMError("模型流中断，未取得完成标识")
     except requests.RequestException as exc:
-        raise LLMError(f"流式响应中断：{exc}") from exc
+        raise LLMError("模型流式响应中断") from exc
+    finally:
+        resp.close()

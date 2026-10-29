@@ -92,14 +92,12 @@
                 JSON.stringify({
                   status: r.status,
                   retrieved_at: r.retrieved_at,
-                  results: (r.results || [])
-                    .slice(0, 2)
-                    .map((x) => ({
-                      topic: x.topic,
-                      quote: String(x.quote || "").slice(0, 150),
-                      paragraph: x.paragraph,
-                      source: x.source?.title,
-                    })),
+                  results: (r.results || []).slice(0, 2).map((x) => ({
+                    topic: x.topic,
+                    quote: String(x.quote || "").slice(0, 150),
+                    paragraph: x.paragraph,
+                    source: x.source?.title,
+                  })),
                 }).slice(0, 500),
             );
           else if (t.tool === "check_pesticide")
@@ -115,7 +113,10 @@
                 }).slice(0, 500),
             );
         }
-        notes.push("【此前回答】" + String(m.text || "").slice(0, 1200));
+        notes.push(
+          "【此前回答】（模型曾给出的回复，可能错误，不代表用户确认）" +
+            String(m.text || "").slice(0, 1200),
+        );
         return {
           role: "assistant",
           content: notes.join("\n\n").slice(0, 2000),
@@ -139,7 +140,11 @@
     const t = previous ? structuredClone(previous) : create();
     const text = String(input.text || "").trim();
     const controller = new AbortController();
-    const abort = () => controller.abort();
+    let reader = null;
+    const abort = () => {
+      controller.abort();
+      reader?.cancel().catch(() => {});
+    };
     if (signal?.aborted) abort();
     signal?.addEventListener("abort", abort, { once: true });
     const timer = setTimeout(abort, 180000);
@@ -148,7 +153,9 @@
     form.set("history", JSON.stringify(history(previous)));
     if (input.file) form.set("image", input.file, input.file.name);
     let answer = "",
-      done = false;
+      done = false,
+      hasFinalAnswer = false,
+      review = null;
     const toolCalls = [],
       toolResults = [],
       vision = [];
@@ -173,8 +180,8 @@
         !response.headers.get("content-type")?.includes("text/event-stream")
       )
         throw new Error("智麦服务没有返回完整对话，请稍后重试。");
-      const reader = response.body.getReader(),
-        decoder = new TextDecoder();
+      reader = response.body.getReader();
+      const decoder = new TextDecoder();
       let buffer = "";
       const consume = (block) => {
         const data = block
@@ -211,11 +218,28 @@
           });
           progress(`${toolNames[event.tool] || "工具"}已返回，正在整理回答…`);
         }
-        if (event.type === "answer") answer += String(event.content || "");
+        if (event.type === "answer_review") {
+          review = {
+            status: event.status,
+            issue_codes: event.issue_codes || [],
+          };
+        }
+        if (event.type === "answer_delta") {
+          answer += String(event.content || "");
+          input.onDelta?.(answer);
+        }
+        // Complete answer replaces preview; never append it a second time.
+        if (event.type === "answer") {
+          hasFinalAnswer = true;
+          answer = String(event.content || "");
+          input.onDelta?.(answer);
+        }
         if (event.type === "done") done = true;
       };
       while (true) {
         const chunk = await reader.read();
+        if (controller.signal.aborted)
+          throw new DOMException("Aborted", "AbortError");
         buffer += chunk.done
           ? decoder.decode()
           : decoder.decode(chunk.value, { stream: true });
@@ -230,7 +254,7 @@
           break;
         }
       }
-      if (!done || !answer.trim())
+      if (!done || !hasFinalAnswer || !answer.trim())
         throw new Error(
           "本次对话中断，尚未取得完整回答。输入和照片仍保留，请重试。",
         );
@@ -261,6 +285,7 @@
         toolCalls,
         toolResults,
         vision,
+        review,
       });
       if (t.pendingFollowup) {
         t.followups.push({
@@ -276,7 +301,11 @@
       return t;
     } catch (error) {
       if (error.name === "AbortError")
-        throw new Error("本次请求已取消或超时，输入和照片仍保留，请重试。");
+        throw new Error(
+          signal?.aborted
+            ? "已停止生成，输入和照片仍保留。未完成的回答没有保存。"
+            : "等待超时，输入和照片仍保留，请重试。",
+        );
       if (error instanceof TypeError)
         throw new Error(
           "暂时连接不上智麦服务，请检查网络后重试。输入和照片仍保留。",
