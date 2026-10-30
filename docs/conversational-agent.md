@@ -112,3 +112,6 @@ python front_end/tests/backend_smoke.py
 ```
 
 测试包括：图片先观察后决策、自然多轮上下文、按需追问地点、真实工具链路、没有模拟天气、工具限制和去重、图片转录号码先确认、登记结论防改写、上下游错误脱敏、图片格式校验、未完成响应不落库，以及本地记录保护。浏览器联调调用真实FastAPI、编排和本地知识／登记工具，讯飞模型和高德响应使用显式测试替身；这不能证明真实模型准确率或真实API可用。
+## 2026-10-30 运行诊断补充
+
+新版使用 `zhimai-chat-sse-v2` 协议，请求头需带 `X-Zhimai-Stream-Protocol`。新增 `start`（版本和诊断编号）、`stream_stats`（真实分块计数与耗时）事件，以及无需模型的 `/api/agent/stream-check`。旧页面会收到明确的升级提示。Windows 启动路径、错误分类及排查步骤见[运行排查](startup-and-streaming-troubleshooting.md)。

@@ -14,7 +14,8 @@ import tools
 from pesticides import format_check_answer
 from vision import understand_image
 from answer_review import EVIDENCE_RULES
-from response_stream import stream_response
+from response_stream import stream_response, ResponseFormatError
+from chat_errors import error_event
 from contextlib import closing
 
 ALLOWED_TOOLS = ("get_weather", "search_knowledge", "check_pesticide")
@@ -140,11 +141,12 @@ def _tool_result(name, args, seen):
         return {"status": "unavailable", "error": "tool_failed", "note": "查询暂未完成，不能据此判断。"}
 
 
-def run_turn(message, history, image_bytes=None):
+def run_turn(message, history, image_bytes=None, *, metrics=None):
     """SSE-ready events. Error is terminal; only a completed reply gets done."""
     if not config.SPARK_API_PASSWORD:
         yield {"type": "error", "message": "智能体文字服务尚未配置，请联系项目维护人员；输入和照片已保留。"}
         return
+    metrics = metrics if metrics is not None else {"model_calls": 0, "upstream_content_chunks": 0}
     image_note = "本轮没有发送图片，只能依据文字和历史上下文回答。"
     observations = ""
     vision_failed = False
@@ -175,7 +177,18 @@ def run_turn(message, history, image_bytes=None):
             if turn == budget:
                 conversation.append({"role": "user", "content": "本轮工具次数已用完。请依据已有真实结果回答，不再调用工具；信息不足就说明缺项，不编造结论。"})
             result_frame = None
-            with closing(stream_response(llm.chat_stream(conversation), require_checks=require_checks)) as response:
+            def counted_chunks():
+                metrics["model_calls"] += 1
+                upstream = llm.chat_stream(conversation)
+                try:
+                    for chunk in upstream:
+                        metrics["upstream_content_chunks"] += 1
+                        yield chunk
+                finally:
+                    close = getattr(upstream, "close", None)
+                    if close:
+                        close()
+            with closing(stream_response(counted_chunks(), require_checks=require_checks)) as response:
                 for event in response:
                     if event["type"] == "model_result":
                         result_frame = event
@@ -228,6 +241,10 @@ def run_turn(message, history, image_bytes=None):
             yield {"type": "answer", "content": reply.strip()}
             yield {"type": "done"}
             return
+    except llm.LLMError as exc:
+        yield error_event(exc.code)
+    except ResponseFormatError:
+        yield error_event("answer_format_invalid")
     except Exception:
         # Never send raw HTTP/WebSocket exceptions or signed request URLs to users.
-        yield {"type": "error", "message": "智能体服务暂时无法完成回答，请检查服务配置或稍后重试。输入和照片已保留。"}
+        yield error_event("internal_error")

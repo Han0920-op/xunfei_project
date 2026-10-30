@@ -1,33 +1,36 @@
 @echo off
 chcp 65001 >nul
+setlocal
 title 智麦项目启动器
-
+cd /d "%~dp0"
 echo ============================
 echo       智麦项目启动器
 echo ============================
 
-:: 启动后端 FastAPI（前端由后端同源托管，无需单独的静态服务器）
-start "智麦后端" cmd /k "cd /d %~dp0back_end && call venv\Scripts\activate.bat && python -m uvicorn main:app --host 127.0.0.1 --port 8000"
+set "ZHIMAI_PYTHON="
+if exist "%~dp0.venv\Scripts\python.exe" set "ZHIMAI_PYTHON=%~dp0.venv\Scripts\python.exe"
+if not defined ZHIMAI_PYTHON if exist "%~dp0back_end\venv\Scripts\python.exe" set "ZHIMAI_PYTHON=%~dp0back_end\venv\Scripts\python.exe"
+if not defined ZHIMAI_PYTHON if exist "%~dp0back_end\.venv\Scripts\python.exe" set "ZHIMAI_PYTHON=%~dp0back_end\.venv\Scripts\python.exe"
+if not defined ZHIMAI_PYTHON goto missing_environment
 
-echo.
-echo 正在等待后端就绪，请稍候...
+echo 使用 Python: "%ZHIMAI_PYTHON%"
+"%ZHIMAI_PYTHON%" -c "import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)"
+if errorlevel 1 goto invalid_python
+"%ZHIMAI_PYTHON%" "%~dp0scripts\start_local.py"
+if errorlevel 1 echo [未成功启动] 请保留本窗口的报错文字。
+goto finish
 
-set "counter=0"
-:wait_backend
-curl -s -o nul http://127.0.0.1:8000/health
-if not errorlevel 1 goto backend_ready
-timeout /t 1 /nobreak >nul
-set /a counter+=1
-if %counter% geq 30 goto backend_timeout
-goto wait_backend
+:missing_environment
+echo [找不到虚拟环境] 已检查根目录 .venv、back_end\venv、back_end\.venv。
+echo 请在仓库根目录打开终端，执行：
+echo   py -3 -m venv .venv
+echo   .venv\Scripts\python.exe -m pip install -r back_end\requirements.txt
+echo 然后再次双击 start.bat。不会修改或覆盖你的 .env。
+goto finish
 
-:backend_ready
-echo 后端已就绪，正在打开浏览器...
-goto open_browser
+:invalid_python
+echo [Python 不可用] 请安装 Python 3.10 或更新版本，并检查上方虚拟环境是否已被移动。
 
-:backend_timeout
-echo [警告] 30 秒内后端未就绪，请查看「智麦后端」窗口中的报错信息。
-
-:open_browser
-start "" "http://127.0.0.1:8000/index.html"
+:finish
 pause
+endlocal

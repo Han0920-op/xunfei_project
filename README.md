@@ -14,6 +14,8 @@
 
 ## 本地启动
 
+Windows 可双击 `start.bat`；启动器识别根目录 `.venv` 或 `back_end\venv`，确认后端就绪后才打开页面。首次安装及报错处理见[启动、回答失败与流式输出排查](docs/startup-and-streaming-troubleshooting.md)。更新代码后也请更新对应虚拟环境的依赖。
+
 Python 3.10+，在仓库根目录：
 
 ```sh

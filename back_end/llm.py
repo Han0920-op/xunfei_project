@@ -9,6 +9,18 @@ import config
 class LLMError(Exception):
     """大模型调用失败时抛出。"""
 
+    def __init__(self, message, code="model_request_failed"):
+        super().__init__(message)
+        self.code = code
+
+
+def http_error(status):
+    code = {401: "model_auth_failed", 403: "model_auth_failed",
+            404: "model_endpoint_invalid", 400: "model_request_invalid",
+            422: "model_request_invalid", 429: "model_rate_limited"}.get(
+                status, "model_unavailable" if status >= 500 else "model_request_failed")
+    return LLMError(f"模型接口 HTTP {status}", code)
+
 
 def _url() -> str:
     return f"{config.SPARK_BASE_URL.rstrip('/')}/chat/completions"
@@ -41,11 +53,13 @@ def chat(messages: list[dict]) -> str:
         resp = requests.post(
             _url(), json=_payload(messages), headers=_headers(), timeout=60
         )
+    except requests.Timeout as exc:
+        raise LLMError("模型连接超时", "model_timeout") from exc
     except requests.RequestException as exc:
-        raise LLMError(f"请求大模型接口失败：{exc}") from exc
+        raise LLMError("模型连接失败", "model_connection_failed") from exc
 
     if resp.status_code != 200:
-        raise LLMError(f"大模型接口返回 {resp.status_code}：{resp.text}")
+        raise http_error(resp.status_code)
 
     # 讯飞接口返回 UTF-8，但 Content-Type 未声明 charset 时 requests 可能猜成
     # ISO-8859-1，导致中文乱码，这里显式指定编码。
@@ -54,7 +68,7 @@ def chat(messages: list[dict]) -> str:
     try:
         return data["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError) as exc:
-        raise LLMError(f"解析大模型响应失败：{data}") from exc
+        raise LLMError("解析模型响应失败", "model_stream_invalid") from exc
 
 
 def chat_stream(messages: list[dict]):
@@ -67,8 +81,10 @@ def chat_stream(messages: list[dict]):
             _url(), json=_payload(messages, stream=True), headers=_headers(),
             timeout=(5, 45), stream=True,
         )
+    except requests.Timeout as exc:
+        raise LLMError("模型连接超时", "model_timeout") from exc
     except requests.RequestException as exc:
-        raise LLMError(f"请求大模型接口失败：{exc}") from exc
+        raise LLMError("模型连接失败", "model_connection_failed") from exc
 
     # 上游是 text/event-stream 且不带 charset，requests 会默认按 ISO-8859-1 解码，
     # 中文就变成「ä½ å¥½」式乱码。这里直接读原始字节，显式用 UTF-8 解码。
@@ -77,11 +93,11 @@ def chat_stream(messages: list[dict]):
     finished = False
     try:
         if resp.status_code != 200:
-            raise LLMError(f"大模型接口返回 {resp.status_code}")
+            raise http_error(resp.status_code)
         # requests defaults to buffering 512 bytes, which delays small SSE events.
         for raw in resp.iter_lines(chunk_size=1, decode_unicode=False):
             if time.monotonic() > deadline:
-                raise LLMError("模型响应超时")
+                raise LLMError("模型响应超时", "model_timeout")
             if not raw:
                 continue
             line = raw.decode("utf-8", errors="replace")
@@ -100,20 +116,22 @@ def chat_stream(messages: list[dict]):
                     continue  # optional usage-only frame
                 choice = choices[0]
                 if choice.get("finish_reason") not in (None, "stop"):
-                    raise LLMError("模型回答被截断或过滤")
+                    raise LLMError("模型回答被截断或过滤", "model_truncated" if choice.get("finish_reason") == "length" else "model_filtered")
                 # Never expose reasoning_content from reasoning models.
                 delta = choice.get("delta", {}).get("content", "")
                 if delta is None:
                     delta = ""  # initial/reasoning-only/finish frames may use null
                 if not isinstance(delta, str):
-                    raise LLMError("模型流格式错误")
+                    raise LLMError("模型流格式错误", "model_stream_invalid")
             except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
-                raise LLMError("模型流格式错误") from exc
+                raise LLMError("模型流格式错误", "model_stream_invalid") from exc
             if delta:
                 yield delta
         if not finished:
-            raise LLMError("模型流中断，未取得完成标识")
+            raise LLMError("模型流中断，未取得完成标识", "model_stream_interrupted")
+    except requests.Timeout as exc:
+        raise LLMError("模型响应超时", "model_timeout") from exc
     except requests.RequestException as exc:
-        raise LLMError("模型流式响应中断") from exc
+        raise LLMError("模型流式响应中断", "model_stream_interrupted") from exc
     finally:
         resp.close()

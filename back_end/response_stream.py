@@ -8,6 +8,10 @@ import json
 from answer_review import AnswerHeader
 
 
+class ResponseFormatError(ValueError):
+    """Model output could not be validated; safe to classify without raw text."""
+
+
 def unique_object(pairs):
     result = {}
     for key, value in pairs:
@@ -156,6 +160,8 @@ def stream_response(chunks, *, require_checks=False):
         if not final or not final.strip():
             raise ValueError("empty model response")
         yield {"type": "model_result", "data": None, "content": final}
+    except ValueError as exc:
+        raise ResponseFormatError("invalid answer format or evidence checks") from exc
     finally:
         close = getattr(chunks, "close", None)
         if close:

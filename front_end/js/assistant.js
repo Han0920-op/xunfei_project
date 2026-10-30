@@ -3,6 +3,9 @@
 (() => {
   "use strict";
   const S = window.FarmerStore;
+  const CLIENT_VERSION = "2026.10.30.1";
+  const STREAM_PROTOCOL = "zhimai-chat-sse-v2";
+  let lastTransport = null;
   const toolNames = {
     get_weather: "查询天气",
     search_knowledge: "检索小麦资料",
@@ -137,6 +140,18 @@
     }
   }
   async function respond(previous, input, signal) {
+    const began = performance.now();
+    const transport = {
+      client_version: CLIENT_VERSION,
+      server_version: null,
+      stream_protocol: null,
+      network_reads: 0,
+      answer_delta_events: 0,
+      first_answer_ms: null,
+      last_answer_ms: null,
+      server: null,
+    };
+    let started = false;
     const t = previous ? structuredClone(previous) : create();
     const text = String(input.text || "").trim();
     const controller = new AbortController();
@@ -163,6 +178,8 @@
     try {
       const response = await fetch("/api/agent/chat", {
         method: "POST",
+        headers: { "X-Zhimai-Stream-Protocol": STREAM_PROTOCOL },
+        cache: "no-store",
         body: form,
         signal: controller.signal,
       });
@@ -196,8 +213,24 @@
         } catch {
           throw new Error("对话数据未能读取，请重新发送。");
         }
-        if (event.type === "error")
+        if (!started) {
+          if (
+            event.type !== "start" ||
+            event.stream_protocol !== STREAM_PROTOCOL
+          )
+            throw new Error(
+              "当前后端尚未启用新版流式协议，请拉取最新代码并重启后端，再按 Ctrl+F5 刷新。输入和照片仍保留。",
+            );
+          started = true;
+          transport.server_version = event.server_version;
+          transport.stream_protocol = event.stream_protocol;
+          transport.request_id = event.request_id;
+        }
+        if (event.type === "stream_stats") transport.server = event;
+        if (event.type === "error") {
+          transport.error_code = event.code;
           throw new Error(event.message || "智麦没有完成这次回答，请重试。");
+        }
         if (event.type === "status") progress(event.message || "智麦正在处理…");
         if (event.type === "vision_result") {
           vision.push(event);
@@ -225,6 +258,9 @@
           };
         }
         if (event.type === "answer_delta") {
+          transport.answer_delta_events += 1;
+          transport.last_answer_ms = Math.round(performance.now() - began);
+          transport.first_answer_ms ??= transport.last_answer_ms;
           answer += String(event.content || "");
           input.onDelta?.(answer);
         }
@@ -240,6 +276,7 @@
         const chunk = await reader.read();
         if (controller.signal.aborted)
           throw new DOMException("Aborted", "AbortError");
+        if (!chunk.done) transport.network_reads += 1;
         buffer += chunk.done
           ? decoder.decode()
           : decoder.decode(chunk.value, { stream: true });
@@ -286,6 +323,7 @@
         toolResults,
         vision,
         review,
+        transport,
       });
       if (t.pendingFollowup) {
         t.followups.push({
@@ -312,12 +350,18 @@
         );
       throw error;
     } finally {
+      lastTransport = structuredClone(transport);
       controller.abort();
       clearTimeout(timer);
       signal?.removeEventListener("abort", abort);
     }
   }
   window.FarmerAssistant = {
+    diagnostics: () => ({
+      client_version: CLIENT_VERSION,
+      stream_protocol: STREAM_PROTOCOL,
+      last_request: lastTransport,
+    }),
     create,
     startMedicine,
     startFollowup,

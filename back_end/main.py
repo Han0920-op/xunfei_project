@@ -18,6 +18,7 @@ from models import Case, Conversation, Message, Recheck
 from pesticides import CheckRequest, check_registration
 from knowledge import SearchRequest, AssistRequest, search as search_wheat, assist as assist_wheat
 from chat_api import router as farmer_agent_router
+from runtime import APP_VERSION, FrontendFiles
 
 
 def _ensure_case_columns():
@@ -78,7 +79,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="智麦 农业智能体后端", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="智麦 农业智能体后端", version=APP_VERSION, lifespan=lifespan)
 app.include_router(farmer_agent_router)
 app.add_middleware(
     CORSMiddleware,
@@ -571,5 +572,5 @@ def history_rechecks(case_id: int, db: Session = Depends(get_db)):
 # Mount last: API routes take precedence. One origin avoids extra frontend setup.
 _frontend = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "front_end"))
 if os.path.isdir(_frontend):
-    app.mount("/", StaticFiles(directory=_frontend, html=True), name="farmer_frontend")
+    app.mount("/", FrontendFiles(directory=_frontend, html=True), name="farmer_frontend")
 

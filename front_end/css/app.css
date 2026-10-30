@@ -591,6 +591,7 @@ svg {
   color: #a2ad96;
 }
 .composer-bottom {
+  flex-wrap: wrap;
   display: flex;
   justify-content: space-between;
   align-items: center;

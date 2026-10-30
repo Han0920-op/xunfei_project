@@ -26,6 +26,7 @@ import config
 import dialogue
 import weather
 from main import app
+from runtime import STREAM_PROTOCOL, APP_VERSION
 
 
 def checked(text):
@@ -50,7 +51,7 @@ class FreeChatIntegration(unittest.TestCase):
                 while not server.started:
                     if time.monotonic() > deadline: self.fail('test server did not start')
                     time.sleep(.02)
-                with requests.post(f'http://127.0.0.1:{port}/api/agent/chat', data={'message':'请说明下一步','history':'[]'}, stream=True, timeout=(2,5)) as response:
+                with requests.post(f'http://127.0.0.1:{port}/api/agent/chat', headers={'X-Zhimai-Stream-Protocol': STREAM_PROTOCOL}, data={'message':'请说明下一步','history':'[]'}, stream=True, timeout=(2,5)) as response:
                     self.assertEqual(response.status_code, 200)
                     self.assertEqual(response.headers['X-Accel-Buffering'], 'no')
                     received = []
@@ -70,7 +71,20 @@ class FreeChatIntegration(unittest.TestCase):
                             received.append(json.loads(line[5:]))
                     self.assertEqual(received[-1]['type'], 'done')
                     self.assertEqual(''.join(e['content'] for e in received if e['type']=='answer_delta'), '第一段已经生成。第二段完成。')
+                    self.assertEqual(received[0]['server_version'], APP_VERSION)
+                    self.assertEqual(received[-2]['upstream_content_chunks'], 2)
                 model.assert_called_once()
+                # Explicit no-model diagnostic probe must arrive at intervals too.
+                with requests.get(f'http://127.0.0.1:{port}/api/agent/stream-check', stream=True, timeout=3) as response:
+                    arrivals = []
+                    for line in response.iter_lines(chunk_size=1):
+                        if line.startswith(b'data:'):
+                            event = json.loads(line[5:])
+                            if event['type'] == 'probe':
+                                arrivals.append((time.monotonic(), event))
+                    self.assertEqual([e['sequence'] for _, e in arrivals], [0, 1, 2])
+                    self.assertGreater(arrivals[-1][0] - arrivals[0][0], .5)
+                model.assert_called_once()  # transport probe made no model calls
             finally:
                 release.set()
                 server.should_exit = True

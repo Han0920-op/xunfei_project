@@ -11,6 +11,26 @@ def frame(delta=None, **kwargs):
 
 
 class LLMStreamTests(unittest.TestCase):
+    def test_http_errors_classified_without_exposing_provider_body(self):
+        for status, code in [(401, 'model_auth_failed'), (403, 'model_auth_failed'), (404, 'model_endpoint_invalid'), (429, 'model_rate_limited'), (400, 'model_request_invalid'), (503, 'model_unavailable')]:
+            response = self.response([], status)
+            response.text = 'secret provider body'
+            with self.subTest(status=status), patch.object(config, 'SPARK_API_PASSWORD', 'test'), patch.object(llm.requests, 'post', return_value=response), self.assertRaises(llm.LLMError) as caught:
+                list(llm.chat_stream([]))
+            self.assertEqual(caught.exception.code, code)
+            self.assertNotIn('secret', str(caught.exception))
+            response.close.assert_called_once()
+
+    def test_network_and_truncation_errors_classified(self):
+        for error, code in [(llm.requests.Timeout('secret URL'), 'model_timeout'), (llm.requests.ConnectionError('secret URL'), 'model_connection_failed')]:
+            with patch.object(config, 'SPARK_API_PASSWORD', 'test'), patch.object(llm.requests, 'post', side_effect=error), self.assertRaises(llm.LLMError) as caught:
+                list(llm.chat_stream([]))
+            self.assertEqual(caught.exception.code, code)
+        response = self.response([frame(finish_reason='length')])
+        with patch.object(config, 'SPARK_API_PASSWORD', 'test'), patch.object(llm.requests, 'post', return_value=response), self.assertRaises(llm.LLMError) as caught:
+            list(llm.chat_stream([]))
+        self.assertEqual(caught.exception.code, 'model_truncated')
+
     def response(self, lines, status=200):
         response = Mock(status_code=status)
         response.iter_lines.return_value = iter(lines)

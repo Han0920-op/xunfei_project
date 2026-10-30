@@ -11,6 +11,7 @@ from PIL import Image
 import config
 import dialogue
 from main import app
+from runtime import APP_VERSION, STREAM_PROTOCOL
 from vision import VisionError
 import llm
 
@@ -215,7 +216,59 @@ class DialogueTests(unittest.TestCase):
 
 class DialogueApiTests(unittest.TestCase):
     def setUp(self):
-        self.client = TestClient(app)
+        self.client = TestClient(app, headers={"X-Zhimai-Stream-Protocol": STREAM_PROTOCOL})
+
+    def test_stale_client_rejected_before_paid_calls(self):
+        with patch.object(dialogue.llm, "chat_stream") as model:
+            for headers in [{}, {"X-Zhimai-Stream-Protocol": "old"}]:
+                response = TestClient(app).post('/api/agent/chat', data={'message':'看看小麦'}, headers=headers)
+                self.assertEqual(response.status_code, 409)
+                self.assertIn('Ctrl+F5', response.json()['detail'])
+            model.assert_not_called()
+
+    def test_asset_revalidation_and_public_version(self):
+        response = self.client.get('/api/agent/capabilities')
+        self.assertEqual(response.json()['server_version'], APP_VERSION)
+        self.assertEqual(response.json()['stream_protocol'], STREAM_PROTOCOL)
+        self.assertEqual(response.headers['cache-control'], 'no-store')
+        for url in ['/index.html', '/js/assistant.js?v='+APP_VERSION, '/css/app.css?v='+APP_VERSION]:
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, 200)
+            self.assertIn('must-revalidate', response.headers['cache-control'])
+            self.assertEqual(response.headers['x-zhimai-version'], APP_VERSION)
+        self.assertIn('js/assistant.js?v='+APP_VERSION, self.client.get('/index.html').text)
+
+    def test_stream_metrics_measure_actual_events(self):
+        with patch.object(config, 'SPARK_API_PASSWORD', 'test'), patch.object(dialogue.llm, 'chat_stream', return_value=iter(['第一段', '第二段'])):
+            events = sse(self.client.post('/api/agent/chat', data={'message':'看看小麦'}))
+        self.assertEqual(events[0]['type'], 'start')
+        self.assertEqual(events[0]['server_version'], APP_VERSION)
+        stats = events[-2]
+        self.assertEqual(stats['type'], 'stream_stats')
+        self.assertEqual(stats['answer_delta_events'], 2)
+        self.assertEqual(stats['upstream_content_chunks'], 2)
+        self.assertEqual(stats['model_calls'], 1)
+        self.assertGreaterEqual(stats['last_answer_ms'], stats['first_answer_ms'])
+
+    def test_errors_are_distinguishable_redacted_and_correlated(self):
+        for error, expected in [(llm.LLMError('secret-provider-body', 'model_auth_failed'), 'model_auth_failed'),
+                                (RuntimeError('secret-provider-body'), 'internal_error')]:
+            with self.subTest(expected=expected), patch.object(config, 'SPARK_API_PASSWORD', 'secret-api-key'), patch.object(dialogue.llm, 'chat_stream', side_effect=error), self.assertLogs('uvicorn.error') as logs:
+                response = self.client.post('/api/agent/chat', data={'message':'private farmer question'})
+            events = sse(response)
+            self.assertEqual(events[-1]['type'], 'error')
+            self.assertEqual(events[-1]['code'], expected)
+            self.assertEqual(events[0]['request_id'], events[-1]['request_id'])
+            self.assertIn(events[-1]['request_id'], ''.join(logs.output))
+            for secret in ['secret-provider-body', 'secret-api-key', 'private farmer question']:
+                self.assertNotIn(secret, response.text + ''.join(logs.output))
+
+    def test_image_answer_schema_failure_is_specific(self):
+        with patch.object(config, 'SPARK_API_PASSWORD', 'test'), patch.object(dialogue, 'understand_image', return_value='叶片局部黄化'), patch.object(dialogue.llm, 'chat_stream', return_value=iter(['没有遵守检查格式'])):
+            response = self.client.post('/api/agent/chat', data={'message':'帮我看看'}, files={'image':('photo.png', png(), 'image/png')})
+        events = sse(response)
+        self.assertEqual(events[-1]['code'], 'answer_format_invalid')
+        self.assertEqual(answers(events), '')
 
     def test_valid_text_request_has_real_sse_and_answer(self):
         with patch.object(config, "SPARK_API_PASSWORD", "test-chat-key"):

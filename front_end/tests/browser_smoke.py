@@ -19,7 +19,10 @@ class QuietHandler(SimpleHTTPRequestHandler):
         pass
 
 
+START = {'type':'start', 'server_version':'2026.10.30.1', 'stream_protocol':'zhimai-chat-sse-v2'}
+
 def stream(events):
+    events = [START, *events]
     return ''.join('data: ' + json.dumps(event, ensure_ascii=False) + '\n\n' for event in events)
 
 
@@ -102,7 +105,10 @@ class FarmerFrontendTests(unittest.TestCase):
     def start_controlled_stream(self):
         self.page.evaluate("""() => {
           window.fetch = async () => new Response(new ReadableStream({
-            start(controller) { window.__streamController = controller; }
+            start(controller) {
+              window.__streamController = controller;
+              controller.enqueue(new TextEncoder().encode('data: '+JSON.stringify({type:'start',server_version:'2026.10.30.1',stream_protocol:'zhimai-chat-sse-v2'})+'\\n\\n'));
+            }
           }), {headers:{'Content-Type':'text/event-stream'}});
           window.__push = events => window.__streamController.enqueue(new TextEncoder().encode(events.map(e=>'data: '+JSON.stringify(e)+'\\n\\n').join('')));
         }""")
@@ -123,6 +129,47 @@ class FarmerFrontendTests(unittest.TestCase):
         self.answer()
         expect(self.page.locator('.agent-answer')).to_have_text('第一段中文。<img src=x onerror=alert(1)>第二段。')
         self.assertEqual(self.page.evaluate('FarmerStore.records()[0].messages.length'), 2)
+
+    def test_old_backend_is_detected_and_draft_retained(self):
+        self.page.unroute('**/api/agent/chat')
+        self.page.route('**/api/agent/chat', lambda route: route.fulfill(status=200, content_type='text/event-stream', body='data: {"type":"status","message":"old backend"}\n\n'))
+        self.go()
+        self.page.locator('#photoInput').set_input_files(str(PHOTO))
+        self.send('帮我看这张图')
+        expect(self.page.locator('#sendError')).to_contain_text('重启后端')
+        expect(self.page.locator('#messageInput')).to_have_value('帮我看这张图')
+        expect(self.page.locator('.attachment')).to_be_visible()
+        self.assertEqual(self.page.evaluate('FarmerStore.records().length'), 0)
+
+    def test_mobile_stop_remains_visible_and_diagnostics_record_real_chunks(self):
+        self.page.set_viewport_size({'width':320,'height':844})
+        self.go()
+        self.start_controlled_stream()
+        self.send('逐段显示')
+        stop = self.page.get_by_role('button', name='停止生成', exact=True)
+        expect(stop).to_be_visible()
+        box = stop.bounding_box()
+        self.assertLessEqual(box['x'] + box['width'], 320)
+        self.assertGreaterEqual(box['x'], 0)
+        self.page.evaluate("__push([{type:'answer_delta',content:'第一段'}])")
+        expect(self.page.locator('#streamingAnswer')).to_have_text('第一段')
+        self.page.evaluate("__push([{type:'answer_delta',content:'第二段'},{type:'stream_stats',model_calls:1,upstream_content_chunks:2,answer_delta_events:2},{type:'answer',content:'第一段第二段'},{type:'done'}]);__streamController.close()")
+        self.answer()
+        data = self.page.evaluate('FarmerAssistant.diagnostics().last_request')
+        self.assertEqual(data['answer_delta_events'], 2)
+        self.assertEqual(data['server']['upstream_content_chunks'], 2)
+        self.assertGreaterEqual(data['network_reads'], 2)
+        self.assertEqual(data['server_version'], '2026.10.30.1')
+        self.assertEqual(self.page.evaluate('FarmerStore.records()[0].messages.at(-1).transport'), data)
+
+    def test_error_code_survives_for_support_without_saving_failed_record(self):
+        self.mock([{'type':'error','code':'model_auth_failed','message':'讯飞文字服务鉴权失败。诊断编号：test123。'}])
+        self.go()
+        self.send('请判断黄叶原因')
+        expect(self.page.locator('#sendError')).to_contain_text('鉴权失败')
+        self.assertEqual(self.page.evaluate('FarmerAssistant.diagnostics().last_request.error_code'), 'model_auth_failed')
+        self.assertEqual(self.page.evaluate('FarmerStore.records().length'), 0)
+        expect(self.page.get_by_role('button', name='重新核对登记号', exact=True)).to_have_count(0)
 
     def test_stop_and_stream_error_retract_preview_and_preserve_draft(self):
         for stop in [True, False]:
@@ -356,7 +403,7 @@ class FarmerFrontendTests(unittest.TestCase):
     def test_fragmented_utf8_sse_and_progress_callbacks(self):
         self.go()
         result=self.page.evaluate('''async () => {
-          const data = 'data: '+JSON.stringify({type:'status',message:'正在查看照片'})+'\\r\\n\\r\\n'+'data: '+JSON.stringify({type:'answer',content:'中文图片观察'})+'\\n\\n'+'data: '+JSON.stringify({type:'done'})+'\\n\\n';
+          const data = 'data: '+JSON.stringify({type:'start',server_version:'2026.10.30.1',stream_protocol:'zhimai-chat-sse-v2'})+'\\n\\n'+'data: '+JSON.stringify({type:'status',message:'正在查看照片'})+'\\r\\n\\r\\n'+'data: '+JSON.stringify({type:'answer',content:'中文图片观察'})+'\\n\\n'+'data: '+JSON.stringify({type:'done'})+'\\n\\n';
           const bytes = new TextEncoder().encode(data); const old=window.fetch;
           window.fetch=async()=>new Response(new ReadableStream({start(c){for(let i=0;i<bytes.length;i+=7)c.enqueue(bytes.slice(i,i+7));c.close()}}),{headers:{'content-type':'text/event-stream'}});
           const progress=[];
