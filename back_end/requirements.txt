@@ -2,6 +2,7 @@ fastapi
 uvicorn[standard]
 requests
 python-dotenv
+tzdata
 sqlalchemy
 python-multipart
 pydantic>=2,<3
