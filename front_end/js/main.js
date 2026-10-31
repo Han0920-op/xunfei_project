@@ -23,8 +23,7 @@
     photoLoading: false,
     search: "",
   };
-  document.getElementById("app").innerHTML =
-    `<a class="skip-link" href="#main">跳到主要内容</a><header class="site-header"><div class="header-inner"><a class="brand" href="index.html" aria-label="智麦首页"><span>${icon("wheat")}</span><b>智麦</b><small>小麦的事，一起看看</small></a><nav aria-label="主导航"><a class="${!isHistory ? "active" : ""}" ${!isHistory ? 'aria-current="page"' : ""} href="index.html">问智麦</a><a class="${isHistory ? "active" : ""}" ${isHistory ? 'aria-current="page"' : ""} href="history.html">我的记录</a></nav><button class="icon-button help-button" data-action="help" aria-label="怎么使用智麦">${icon("help")}</button></div></header><main id="main" tabindex="-1"></main><footer class="site-footer"><span>冬小麦病虫害辅助诊断 · 用药核对 · 持续复查</span><button data-action="scope">功能范围与数据说明</button></footer><input id="photoInput" class="sr-only" tabindex="-1" type="file" accept="image/jpeg,image/png,image/webp"><dialog id="dialog"></dialog><div id="toasts" aria-live="polite"></div>`;
+  document.getElementById("app").innerHTML = window.AppShell.markup(isHistory ? "history" : "chat", true);
   const root = document.getElementById("main");
   function photoHTML(p, caption = "") {
     return `<figure class="saved-photo"><img data-photo="${esc(p.id)}" alt="${esc(p.name || "现场照片")}" loading="lazy">${caption ? `<figcaption>${esc(caption)}</figcaption>` : ""}</figure>`;

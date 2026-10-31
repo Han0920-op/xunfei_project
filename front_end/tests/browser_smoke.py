@@ -73,9 +73,9 @@ class FarmerFrontendTests(unittest.TestCase):
     def answer(self):
         expect(self.page.locator('.agent-answer').last).to_be_visible()
 
-    def test_home_is_free_chat_with_only_two_nav_links(self):
+    def test_home_is_free_chat_with_four_sidebar_links(self):
         self.go()
-        expect(self.page.locator('nav a')).to_have_count(3)
+        expect(self.page.locator('nav a')).to_have_count(4)
         expect(self.page.locator('select')).to_have_count(0)
         self.send('小麦叶片发黄，昨天刚下过雨')
         self.answer()
