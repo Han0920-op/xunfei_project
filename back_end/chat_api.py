@@ -9,7 +9,7 @@ import uuid
 from contextlib import closing
 from typing import Literal
 
-from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile, Request
 from fastapi.responses import JSONResponse
 from fastapi.responses import StreamingResponse
 from PIL import Image, ImageOps, UnidentifiedImageError
@@ -95,7 +95,7 @@ async def stream_check():
 
 
 @router.post("/chat")
-async def chat(message: str = Form(""), history: str = Form("[]"), image: UploadFile | None = File(None),
+async def chat(request: Request, message: str = Form(""), history: str = Form("[]"), image: UploadFile | None = File(None),
                protocol: str | None = Header(None, alias="X-Zhimai-Stream-Protocol")):
     if protocol != STREAM_PROTOCOL:
         raise HTTPException(409, "页面版本较旧或前后端版本不一致，请拉取最新代码、重启后端，再按 Ctrl+F5 强制刷新。输入和照片仍保留。")
@@ -124,6 +124,11 @@ async def chat(message: str = Form(""), history: str = Form("[]"), image: Upload
     def events():
         started = time.monotonic()
         trace = Trace(request_id)
+        import personal
+        try:
+            trace.owner = personal.owner(request)
+        except HTTPException:
+            trace.owner = None
         trace.log("sse.start", history_messages=len(messages), has_image=bool(image_bytes))
         metrics = {"model_calls": 0, "upstream_content_chunks": 0}
         delta_count = 0

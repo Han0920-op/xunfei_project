@@ -176,6 +176,7 @@
       vision = [];
     const progress = (message) => input.onProgress?.(message);
     try {
+      if (window.PersonalReady) await window.PersonalReady;
       const response = await fetch("/api/agent/chat", {
         method: "POST",
         headers: { "X-Zhimai-Stream-Protocol": STREAM_PROTOCOL },

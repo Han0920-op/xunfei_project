@@ -156,3 +156,6 @@ register(Tool(
     },
     func=search_knowledge,
 ))
+
+register(Tool('list_my_medicines','读取当前用户确认保存的农药资料。不是官方登记依据，不能因持有而判断可以使用。',{'type':'object','properties':{},'required':[]},lambda: '{}'))
+register(Tool('prepare_weather_check','准备每日天气检查草案，必须明确城市、HH:MM北京时间和检查事项。用户点击确认后才保存，不得声称已创建。',{'type':'object','properties':{'location':{'type':'string'},'time':{'type':'string'},'concern':{'type':'string'}},'required':['location','time','concern']},lambda **kwargs:'{}'))

@@ -19,7 +19,7 @@ from chat_errors import error_event
 from diagnostics import Trace
 from contextlib import closing
 
-ALLOWED_TOOLS = ("get_weather", "search_knowledge", "check_pesticide")
+ALLOWED_TOOLS = ("get_weather", "search_knowledge", "check_pesticide", "list_my_medicines", "prepare_weather_check")
 VISION_QUESTION = (
     "你正在协助农户观察农业图片，项目主要面向冬小麦，但不能因此认定照片一定是冬小麦。"
     "每张图独立观察，不预设生育期。只描述这张实际图片中可见的作物、部位、颜色、病斑或虫体、"
@@ -74,6 +74,7 @@ def system_prompt(require_checks=False):
         "核药必须调用check_pesticide；完整登记号或防治对象缺失时补问。不得凭成分名和模型记忆确认登记。"
         "当前仅有公告登记范围、未核实有效期；不生成具体用量、混配、安全间隔期或可以施药的许可。"
         "人员农药暴露应联系专业急救，不做农业诊断；其他作物不要套用小麦结论。\n"
+        "用户问手里已有的药时，调用list_my_medicines读取，不把库存当作适用证明。用户要求每天定时查天气时，调用prepare_weather_check生成确认草案；先确认地点、具体时间与事项，不擅自创建或声称提醒已开启。\n"
         "可用工具：\n" + "\n".join(descriptions) + "\n"
         "需要工具时仅输出JSON：{\"action\":\"tool\",\"tool\":\"工具名\",\"args\":{...}}。"
         + answer_format + "只输出所需工具或最终回答，不展示内部推理过程。回答通常控制在80至200字，用户要求详细解释时再展开。"
@@ -130,6 +131,17 @@ def _tool_result(name, args, seen, trace=None):
         return {"status": "unavailable", "error": "duplicate_call", "note": "本轮已查询过相同条件，不重复请求。请利用已有结果，或说明缺项。"}
     seen.add(signature)
     try:
+        if name in ('list_my_medicines', 'prepare_weather_check'):
+            import personal
+            who = getattr(trace, 'owner', None)
+            if not who:
+                return {'status':'unavailable','message':'请刷新页面连接个人资料后重试。'}
+            if name == 'list_my_medicines':
+                return {'status':'ok','medicines':personal.listing(who,'medicines'),'note':'用户填写资料，不等于登记核验；需要调用check_pesticide核对。'}
+            personal.Entry(name='每日天气检查', location=args['location'], time=args['time'], notes=args['concern'])
+            if not personal.weather._location_code(args['location']):
+                return {'status':'needs_location','message':'请确认支持的城市或六位市县行政区编码。'}
+            return {'status':'draft','location':args['location'],'time':args['time'],'concern':args['concern'],'message':'请在天气检查页面确认后启用；当前只是草案。'}
         raw = tools.execute(name, args, trace=trace) if trace else tools.execute(name, args)
         result = json.loads(raw)
         if not isinstance(result, dict):

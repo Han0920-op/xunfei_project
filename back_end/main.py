@@ -19,6 +19,7 @@ from pesticides import CheckRequest, check_registration
 from knowledge import SearchRequest, AssistRequest, search as search_wheat, assist as assist_wheat
 from chat_api import router as farmer_agent_router
 from runtime import APP_VERSION, FrontendFiles
+import personal
 
 
 def _ensure_case_columns():
@@ -76,11 +77,16 @@ async def lifespan(app: FastAPI):
     _ensure_case_columns()
     # 旧案例没有 conversation_id 的，按识别描述唯一匹配尝试回填，不匹配的保持 None。
     _backfill_conversation_ids()
-    yield
+    scheduler_stop = personal.start()
+    try:
+        yield
+    finally:
+        scheduler_stop.set()
 
 
 app = FastAPI(title="智麦 农业智能体后端", version=APP_VERSION, lifespan=lifespan)
 app.include_router(farmer_agent_router)
+app.include_router(personal.router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

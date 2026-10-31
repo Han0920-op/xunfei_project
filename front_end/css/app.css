@@ -2315,3 +2315,8 @@ dialog footer {
   margin-top: 12px;
   color: var(--muted);
 }
+/* Personal inventory and reminder entry remains reachable on narrow screens. */
+@media (max-width: 600px) {
+  .header-inner { flex-wrap: wrap; }
+  .header-inner nav { flex-wrap: wrap; height: auto; }
+}

@@ -75,7 +75,7 @@ class FarmerFrontendTests(unittest.TestCase):
 
     def test_home_is_free_chat_with_only_two_nav_links(self):
         self.go()
-        expect(self.page.locator('nav a')).to_have_count(2)
+        expect(self.page.locator('nav a')).to_have_count(3)
         expect(self.page.locator('select')).to_have_count(0)
         self.send('小麦叶片发黄，昨天刚下过雨')
         self.answer()
