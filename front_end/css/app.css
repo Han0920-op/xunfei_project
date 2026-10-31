@@ -3100,3 +3100,34 @@ dialog footer {
 .task-clock:has(small) {
   overflow-wrap: anywhere;
 }
+.message .reminder-draft {
+  margin: 18px 0 22px;
+  padding: 20px;
+  background: #f3f7ed;
+  border-color: #cbdcbd;
+  max-width: 100%;
+}
+.reminder-draft h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+}
+.reminder-draft h3 .icon {
+  width: 19px;
+  height: 19px;
+}
+.reminder-draft-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.message .reminder-draft p {
+  font-size: 13px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.message .reminder-draft [data-reminder-status] {
+  font-size: 12px;
+  margin-bottom: 0;
+}

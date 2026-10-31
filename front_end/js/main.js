@@ -23,7 +23,10 @@
     photoLoading: false,
     search: "",
   };
-  document.getElementById("app").innerHTML = window.AppShell.markup(isHistory ? "history" : "chat", true);
+  document.getElementById("app").innerHTML = window.AppShell.markup(
+    isHistory ? "history" : "chat",
+    true,
+  );
   const root = document.getElementById("main");
   function photoHTML(p, caption = "") {
     return `<figure class="saved-photo"><img data-photo="${esc(p.id)}" alt="${esc(p.name || "现场照片")}" loading="lazy">${caption ? `<figcaption>${esc(caption)}</figcaption>` : ""}</figure>`;
@@ -49,6 +52,8 @@
       get_weather: "天气查询",
       search_knowledge: "知识检索",
       check_pesticide: "登记核对",
+      prepare_reminder: "提醒草案",
+      prepare_weather_check: "天气检查草案",
     })[name] || "工具查询";
   function agentTraceHTML(m) {
     const vision = m.vision || [],
@@ -137,7 +142,7 @@
       return `<article class="message user"><div class="user-bubble">${p ? photoHTML(p) : ""}${m.text ? `<p>${esc(m.text)}</p>` : ""}</div><span class="user-avatar">我</span></article>`;
     let content = "";
     if (m.type === "agent")
-      content = `<div class="agent-answer">${esc(m.text).replaceAll("\n", "<br>")}</div>${agentTraceHTML(m)}${last ? `<div class="answer-actions">${actionButton("photo", "补充照片", "camera")}${actionButton("summary", "下载问题摘要", "download")}</div>` : ""}`;
+      content = `<div class="agent-answer">${esc(m.text).replaceAll("\n", "<br>")}</div>${window.ReminderCards.markup(ui.record.id, m)}${agentTraceHTML(m)}${last ? `<div class="answer-actions">${actionButton("photo", "补充照片", "camera")}${actionButton("summary", "下载问题摘要", "download")}</div>` : ""}`;
     else if (m.type === "local-note") content = `<p>${esc(m.text)}</p>`;
     else if (m.type === "question")
       content = `<p class="question-text">${esc(m.text)}</p>${m.hint ? `<p class="message-hint">${esc(m.hint)}</p>` : ""}${knowledgeHTML(m.knowledge)}`;
@@ -204,10 +209,18 @@
     root.innerHTML = `${S.readError ? `<p class="storage-error" role="alert">${esc(S.readError)}</p>` : ""}${requested && !ui.record && !isHistory ? `<section class="empty-records"><h1>这条记录不在当前设备中</h1><p>可以回到我的记录重新选择。旧版服务端记录暂未在这个原型中加载。</p><a class="button primary" href="history.html">查看我的记录</a></section>` : isHistory ? history() : ui.record || ui.pending ? conversation() : home()}`;
     bind();
     hydrate();
-    if (options.scroll)
-      document
-        .getElementById("threadEnd")
-        ?.scrollIntoView({ block: "end", behavior: "instant" });
+    if (options.scroll) {
+      const latestReply = Array.from(
+        root.querySelectorAll(".message.assistant"),
+      ).at(-1);
+      const confirmation = latestReply?.querySelector(
+        "[data-reminder-confirm]:not(:disabled)",
+      );
+      (confirmation || document.getElementById("threadEnd"))?.scrollIntoView({
+        block: confirmation ? "center" : "end",
+        behavior: "instant",
+      });
+    }
     if (options.focus)
       document.getElementById("messageInput")?.focus({ preventScroll: true });
   }

@@ -55,6 +55,11 @@ class ReminderBrowserTests(unittest.TestCase):
   with patch.object(config,'SPARK_API_PASSWORD','test'),patch.object(dialogue.llm,'chat_stream',return_value=iter([output])):
    self.page.goto(self.base+'/index.html');self.page.locator('#messageInput').fill('三分钟后提醒我复查麦苗');self.page.locator('#sendButton').click()
    expect(self.page.get_by_role('button',name='确认设置',exact=True)).to_be_visible()
+   expect(self.page.get_by_role('button',name='确认设置',exact=True)).to_be_in_viewport()
+   expect(self.page.locator('.message.assistant .reminder-draft')).to_have_count(1)
+   self.assertTrue(self.page.evaluate("document.querySelector('.reminder-draft').compareDocumentPosition(document.querySelector('#messageForm')) & Node.DOCUMENT_POSITION_FOLLOWING"))
+   self.page.reload()
+   expect(self.page.locator('.message.assistant .reminder-draft')).to_have_count(1)
    self.assertEqual(self.context.request.get(self.base+'/api/personal/tasks').json(),[])
    self.page.get_by_role('button',name='确认设置',exact=True).click()
    expect(self.page.locator('.reminder-draft')).to_contain_text('已设置，已保存')
