@@ -19,7 +19,7 @@ from chat_errors import error_event
 from diagnostics import Trace
 from contextlib import closing
 
-ALLOWED_TOOLS = ("get_weather", "search_knowledge", "check_pesticide", "list_my_medicines", "prepare_weather_check")
+ALLOWED_TOOLS = ("get_weather", "search_knowledge", "check_pesticide", "list_my_medicines", "prepare_weather_check", "prepare_reminder")
 VISION_QUESTION = (
     "你正在协助农户观察农业图片，项目主要面向冬小麦，但不能因此认定照片一定是冬小麦。"
     "每张图独立观察，不预设生育期。只描述这张实际图片中可见的作物、部位、颜色、病斑或虫体、"
@@ -74,7 +74,7 @@ def system_prompt(require_checks=False):
         "核药必须调用check_pesticide；完整登记号或防治对象缺失时补问。不得凭成分名和模型记忆确认登记。"
         "当前仅有公告登记范围、未核实有效期；不生成具体用量、混配、安全间隔期或可以施药的许可。"
         "人员农药暴露应联系专业急救，不做农业诊断；其他作物不要套用小麦结论。\n"
-        "用户问手里已有的药时，调用list_my_medicines读取，不把库存当作适用证明。用户要求每天定时查天气时，调用prepare_weather_check生成确认草案；先确认地点、具体时间与事项，不擅自创建或声称提醒已开启。\n"
+        "用户问手里已有的药时，调用list_my_medicines读取，不把库存当作适用证明。用户要求普通闹钟、复查提醒时调用prepare_reminder，支持一次性或每日提醒，无需地点；时间或事项含糊只追问关键缺项，不能声称不支持普通闹钟。用户要求每天定时查天气时，调用prepare_weather_check生成确认草案；先确认地点、具体时间与事项，不擅自创建或声称提醒已开启。\n"
         "可用工具：\n" + "\n".join(descriptions) + "\n"
         "需要工具时仅输出JSON：{\"action\":\"tool\",\"tool\":\"工具名\",\"args\":{...}}。"
         + answer_format + "只输出所需工具或最终回答，不展示内部推理过程。回答通常控制在80至200字，用户要求详细解释时再展开。"
@@ -131,17 +131,25 @@ def _tool_result(name, args, seen, trace=None):
         return {"status": "unavailable", "error": "duplicate_call", "note": "本轮已查询过相同条件，不重复请求。请利用已有结果，或说明缺项。"}
     seen.add(signature)
     try:
-        if name in ('list_my_medicines', 'prepare_weather_check'):
+        if name in ('list_my_medicines', 'prepare_weather_check', 'prepare_reminder'):
             import personal
             who = getattr(trace, 'owner', None)
             if not who:
                 return {'status':'unavailable','message':'请刷新页面连接个人资料后重试。'}
             if name == 'list_my_medicines':
                 return {'status':'ok','medicines':personal.listing(who,'medicines'),'note':'用户填写资料，不等于登记核验；需要调用check_pesticide核对。'}
-            personal.Entry(name='每日天气检查', location=args['location'], time=args['time'], notes=args['concern'])
-            if not personal.weather._location_code(args['location']):
-                return {'status':'needs_location','message':'请确认支持的城市或六位市县行政区编码。'}
-            return {'status':'draft','location':args['location'],'time':args['time'],'concern':args['concern'],'message':'请在天气检查页面确认后启用；当前只是草案。'}
+            try:
+                item = personal.Entry(name=args.get('name','每日天气检查'),
+                    task_type='reminder' if name=='prepare_reminder' else 'weather',
+                    location=args.get('location',''), time=args.get('time','08:00'),
+                    notes=args['concern'], recurrence=args.get('recurrence','daily'), run_at=args.get('run_at',''))
+                if name=='prepare_reminder' and item.recurrence=='daily' and not args.get('time'):
+                    return {'status':'needs_time','message':'请明确每天的时间（北京时间）'}
+                due = personal.validate_task(item)
+            except (ValueError, personal.HTTPException):
+                return {'status':'needs_time_or_location','message':'请确认明确的未来日期时间；天气检查还需有效城市。'}
+            return {'status':'draft', **item.model_dump(), 'concern':item.notes, 'next':due,
+                    'message':'请点击确认设置，保存成功后会出现在提醒页。'}
         raw = tools.execute(name, args, trace=trace) if trace else tools.execute(name, args)
         result = json.loads(raw)
         if not isinstance(result, dict):
@@ -240,6 +248,10 @@ def run_turn(message, history, image_bytes=None, *, metrics=None, trace=None):
                     result = ({"status": "needs_confirmation", "message": "登记号尚未由用户确认，不能把图片转录或模型猜测当成登记事实。"}
                               if photo_number_unconfirmed else _tool_result(name, args, seen, trace=trace))
                     yield {"type": "tool_result", "tool": name if name in ALLOWED_TOOLS else "unavailable", "result": result}
+                    if name in ('prepare_reminder', 'prepare_weather_check') and result.get('status') == 'draft':
+                        yield {'type':'answer','content':'已准备好提醒，请点击下方“确认设置”。保存成功后会出现在“提醒”页，到点会在智麦页面提示。'}
+                        yield {'type':'done'}
+                        return
                     if name == "check_pesticide":
                         answer = (f"请先对照包装确认：完整农药登记证号是 {number.upper()} 吗？图片转录可能出错，确认号码后再核对登记范围。"
                                   if photo_number_unconfirmed else format_check_answer(json.dumps(result, ensure_ascii=False)))

@@ -3027,3 +3027,76 @@ dialog footer {
     transition: none;
   }
 }
+.reminder-alert {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 60;
+  width: min(420px, calc(100vw - 32px));
+  max-height: 65vh;
+  overflow: auto;
+  padding: 24px;
+  background: #fff;
+  border: 1px solid #a3b78b;
+  border-radius: 16px;
+  box-shadow: 0 12px 60px #18321d33;
+  color: var(--green);
+}
+.reminder-alert small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.reminder-alert h2 {
+  font-size: 20px;
+  margin: 8px 0;
+}
+.reminder-alert p {
+  white-space: pre-wrap;
+  font-size: 14px;
+  margin: 12px 0 20px;
+  overflow-wrap: anywhere;
+}
+.reminder-alert > div {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.reminder-count {
+  margin-left: auto;
+  background: var(--green);
+  color: #fff;
+  border-radius: 12px;
+  padding: 0 7px;
+  font-size: 11px;
+}
+.reminder-draft {
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: white;
+  margin: 20px auto;
+  max-width: 850px;
+}
+.reminder-draft h3 {
+  font-size: 18px;
+}
+.reminder-draft p {
+  margin: 10px 0;
+  color: var(--muted);
+}
+.reminder-draft .button {
+  margin-right: 10px;
+}
+.reminder-alert [hidden],
+.reminder-draft [hidden] {
+  display: none;
+}
+.reminder-form-choice {
+  margin-bottom: 18px;
+}
+.dialog-body label[hidden] {
+  display: none;
+}
+.task-clock:has(small) {
+  overflow-wrap: anywhere;
+}
