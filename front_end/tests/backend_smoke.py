@@ -8,6 +8,7 @@ from pathlib import Path
 import socket
 import sys
 import threading
+import tempfile
 import time
 import unittest
 from datetime import datetime, timedelta
@@ -23,6 +24,7 @@ import io
 BACKEND = Path(__file__).resolve().parents[2] / 'back_end'
 sys.path.insert(0, str(BACKEND))
 import config
+import personal
 import dialogue
 import weather
 from main import app
@@ -34,6 +36,15 @@ def checked(text):
 
 
 class FreeChatIntegration(unittest.TestCase):
+    def setUp(self):
+        self.memory_directory = tempfile.TemporaryDirectory()
+        self.memory_path_patch = patch.object(personal, 'PATH', Path(self.memory_directory.name) / 'personal.db')
+        self.memory_path_patch.start()
+
+    def tearDown(self):
+        self.memory_path_patch.stop()
+        self.memory_directory.cleanup()
+
     def test_http_first_delta_precedes_model_completion(self):
         release = threading.Event()
         def upstream(_messages, **_kwargs):

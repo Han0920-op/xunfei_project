@@ -3131,3 +3131,36 @@ dialog footer {
   font-size: 12px;
   margin-bottom: 0;
 }
+.memory-section-title {
+  font-size: 19px;
+  margin: 32px 0 18px;
+}
+.memory-timeline {
+  margin: 18px 0;
+}
+.memory-timeline p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 12px 0;
+  font-size: 14px;
+}
+.memory-timeline .personal-badge {
+  align-self: flex-start;
+}
+.memory-candidate {
+  border-top: 1px solid var(--line);
+  padding: 15px 0;
+}
+.memory-candidate small {
+  display: block;
+  color: var(--muted);
+}
+#serverCases {
+  margin-top: 18px;
+}
+.memory-card .button {
+  margin: 8px 8px 0 0;
+}
+.memory-card strong {
+  overflow-wrap: anywhere;
+}

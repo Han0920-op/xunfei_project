@@ -3,7 +3,7 @@
 (() => {
   "use strict";
   const S = window.FarmerStore;
-  const CLIENT_VERSION = "2026.10.30.1";
+  const CLIENT_VERSION = "2026.10.31.memory";
   const STREAM_PROTOCOL = "zhimai-chat-sse-v2";
   let lastTransport = null;
   const toolNames = {
@@ -153,6 +153,7 @@
     };
     let started = false;
     const t = previous ? structuredClone(previous) : create();
+    t.memoryContext = [];
     const text = String(input.text || "").trim();
     const controller = new AbortController();
     let reader = null;
@@ -165,6 +166,10 @@
     const timer = setTimeout(abort, 180000);
     const form = new FormData();
     form.set("message", text);
+    form.set("case_id", t.id);
+    const memoryTurnId = S.id();
+    form.set("turn_id", memoryTurnId);
+    if (input.photo?.id) form.set("photo_id", input.photo.id);
     form.set("history", JSON.stringify(history(previous)));
     if (input.file) form.set("image", input.file, input.file.name);
     let answer = "",
@@ -227,6 +232,10 @@
           transport.stream_protocol = event.stream_protocol;
           transport.request_id = event.request_id;
         }
+        if (event.type === "memory_context")
+          t.memoryContext = event.facts || [];
+        if (event.type === "memory_saved")
+          t.serverMemory = { saved: true, case_id: event.case_id };
         if (event.type === "stream_stats") transport.server = event;
         if (event.type === "error") {
           transport.error_code = event.code;
@@ -310,16 +319,17 @@
         t.title = (text || "照片中的小麦情况").slice(0, 36);
       if (input.photo) t.photos.push(input.photo);
       t.messages.push({
-        id: S.id(),
+        id: memoryTurnId + "-u",
         role: "user",
         text: text || "帮我看看这张照片",
         photoId: input.photo?.id,
       });
       t.messages.push({
-        id: S.id(),
+        id: memoryTurnId + "-a",
         role: "assistant",
         type: "agent",
         text: answer.trim(),
+        memoryFacts: t.memoryContext,
         toolCalls,
         toolResults,
         vision,

@@ -161,3 +161,7 @@ register(Tool('list_my_medicines','读取当前用户确认保存的农药资料
 register(Tool('prepare_weather_check','准备每日天气检查草案，必须明确城市、HH:MM北京时间和检查事项。用户点击确认后才保存，不得声称已创建。',{'type':'object','properties':{'location':{'type':'string'},'time':{'type':'string'},'concern':{'type':'string'}},'required':['location','time','concern']},lambda **kwargs:'{}'))
 
 register(Tool('prepare_reminder','准备普通提醒，不需要天气或地点。支持once指定日期时间、daily每天重复；3点等含糊时间先追问上午下午及日期。确认卡点击保存后才算创建。',{'type':'object','properties':{'name':{'type':'string'},'concern':{'type':'string'},'recurrence':{'type':'string','enum':['once','daily']},'time':{'type':'string','description':'daily时必填HH:MM北京时间'},'run_at':{'type':'string','description':'once时必填YYYY-MM-DDTHH:MM北京时间'}},'required':['name','concern','recurrence']},lambda **kwargs:'{}'))
+
+register(Tool('search_user_cases','检索当前用户旧案例，只返回候选摘要，用户确认后才关联；不能跨用户检索。',{'type':'object','properties':{'query':{'type':'string'}},'required':['query']},lambda **kwargs:'{}'))
+register(Tool('get_case_history','读取用户已确认关联的当前案例，其他案例需要先确认。',{'type':'object','properties':{'case_id':{'type':'string'}},'required':['case_id']},lambda **kwargs:'{}'))
+register(Tool('prepare_memory_fact','用户明确要求记住时准备确认卡，不直接写入；user是长期资料，case是本次已确认的症状或处理事实，不保存模型推断。',{'type':'object','properties':{'scope':{'type':'string','enum':['user','case']},'label':{'type':'string'},'content':{'type':'string'}},'required':['scope','label','content']},lambda **kwargs:'{}'))

@@ -20,6 +20,7 @@ from knowledge import SearchRequest, AssistRequest, search as search_wheat, assi
 from chat_api import router as farmer_agent_router
 from runtime import APP_VERSION, FrontendFiles
 import personal
+import memory
 
 
 def _ensure_case_columns():
@@ -87,6 +88,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="智麦 农业智能体后端", version=APP_VERSION, lifespan=lifespan)
 app.include_router(farmer_agent_router)
 app.include_router(personal.router)
+app.include_router(memory.router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

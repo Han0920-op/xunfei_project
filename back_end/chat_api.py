@@ -96,7 +96,8 @@ async def stream_check():
 
 @router.post("/chat")
 async def chat(request: Request, message: str = Form(""), history: str = Form("[]"), image: UploadFile | None = File(None),
-               protocol: str | None = Header(None, alias="X-Zhimai-Stream-Protocol")):
+               protocol: str | None = Header(None, alias="X-Zhimai-Stream-Protocol"),
+               case_id: str = Form(""), turn_id: str = Form(""), photo_id: str = Form("")):
     if protocol != STREAM_PROTOCOL:
         raise HTTPException(409, "页面版本较旧或前后端版本不一致，请拉取最新代码、重启后端，再按 Ctrl+F5 强制刷新。输入和照片仍保留。")
     if len(message) > 4000 or len(history) > 250_000:
@@ -119,6 +120,28 @@ async def chat(request: Request, message: str = Form(""), history: str = Form("[
     if not message.strip() and not image_bytes:
         raise HTTPException(400, "请先说说情况，或选择一张照片再发送。")
 
+    import memory, personal
+    try:
+        actor=personal.owner(request)
+    except HTTPException:
+        actor=None
+    if case_id:
+        if not actor:raise HTTPException(401,"长期记忆身份未连接，请刷新页面后重试。输入和照片仍保留。")
+        memory.identifier(case_id)
+        memory.identifier(turn_id)
+        if photo_id:memory.identifier(photo_id)
+    confirmed=memory.fact_context(actor,case_id or None) if actor else []
+    if actor and case_id and not messages:
+        try:
+            old_case=memory.get_case(actor,case_id)
+        except HTTPException as exc:
+            if exc.status_code!=404:raise
+        else:
+            for turn in old_case['turns'][-15:]:
+                observations='；'.join(v.get('content','')[:700] for v in turn['assistant'].get('vision',[]) if v.get('status')=='ok')
+                past=('【此前该轮图片的初步观察，非本轮新识别】'+observations+'\n') if observations else ''
+                messages.extend([HistoryMessage(role='user',content=turn['user']['text'][:6000]),
+                    HistoryMessage(role='assistant',content=past+'【此前回答】（模型历史判断，未经确认）'+turn['assistant']['text'][:4000])])
     request_id = uuid.uuid4().hex[:12]
 
     def events():
@@ -129,6 +152,8 @@ async def chat(request: Request, message: str = Form(""), history: str = Form("[
             trace.owner = personal.owner(request)
         except HTTPException:
             trace.owner = None
+        trace.case_id=case_id or None
+        trace.memory_facts=confirmed
         trace.log("sse.start", history_messages=len(messages), has_image=bool(image_bytes))
         metrics = {"model_calls": 0, "upstream_content_chunks": 0}
         delta_count = 0
@@ -143,7 +168,23 @@ async def chat(request: Request, message: str = Form(""), history: str = Form("[
                 trace.log("sse.generator_failed", exc=exc)
                 yield error_event("internal_error")
 
+        saved_answer=None
+        vision=[]
+        tool_results=[]
+        if confirmed:
+            yield "data: " + json.dumps({'type':'memory_context','facts':confirmed,'case_id':case_id},ensure_ascii=False) + "\n\n"
         for event in guarded_turn():
+            if event['type']=='vision_result':vision.append(event)
+            if event['type']=='tool_result':tool_results.append({'tool':event['tool'],'result':event['result']})
+            if event['type']=='answer':saved_answer=event['content']
+            if event['type']=='done' and actor and case_id and saved_answer:
+                try:
+                    memory.save_turn(actor,case_id,turn_id,message,saved_answer,vision,tool_results,bool(image_bytes),photo_id)
+                    yield 'data: '+json.dumps({'type':'memory_saved','case_id':case_id})+'\n\n'
+                except Exception as exc:
+                    trace.log('memory.save_failed',exc=exc)
+                    event=error_event('internal_error')
+
             if event["type"] == "error":
                 event = {**event, "request_id": request_id}
                 event["message"] += f" 诊断编号：{request_id}。"
