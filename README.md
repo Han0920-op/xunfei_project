@@ -14,6 +14,8 @@
 
 ## 本地启动
 
+HTTP 200 后出现 SSE error 的排查、日志隐私和最小修复建议见[异常链排查记录](docs/sse-error-investigation.md)。
+
 Windows 可双击 `start.bat`；启动器识别根目录 `.venv` 或 `back_end\venv`，确认后端就绪后才打开页面。首次安装及报错处理见[启动、回答失败与流式输出排查](docs/startup-and-streaming-troubleshooting.md)。更新代码后也请更新对应虚拟环境的依赖。
 
 Python 3.10+，在仓库根目录：

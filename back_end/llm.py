@@ -19,7 +19,9 @@ def http_error(status):
             404: "model_endpoint_invalid", 400: "model_request_invalid",
             422: "model_request_invalid", 429: "model_rate_limited"}.get(
                 status, "model_unavailable" if status >= 500 else "model_request_failed")
-    return LLMError(f"模型接口 HTTP {status}", code)
+    error = LLMError(f"模型接口 HTTP {status}", code)
+    error.status_code = status
+    return error
 
 
 def _url() -> str:
@@ -71,7 +73,7 @@ def chat(messages: list[dict]) -> str:
         raise LLMError("解析模型响应失败", "model_stream_invalid") from exc
 
 
-def chat_stream(messages: list[dict]):
+def chat_stream(messages: list[dict], *, trace=None):
     """流式调用大模型，逐段 yield 增量文本（delta content）。"""
     if not config.SPARK_API_PASSWORD:
         raise LLMError("未配置 SPARK_API_PASSWORD，请在 .env 中填写讯飞星火的 APIPassword。")
@@ -92,6 +94,8 @@ def chat_stream(messages: list[dict]):
     deadline = time.monotonic() + 120
     finished = False
     try:
+        if trace:
+            trace.log("model.http_response", status_code=resp.status_code)
         if resp.status_code != 200:
             raise http_error(resp.status_code)
         # requests defaults to buffering 512 bytes, which delays small SSE events.
@@ -109,14 +113,24 @@ def chat_stream(messages: list[dict]):
                 break
             try:
                 event = json.loads(data)
+                # Observe provider business errors without changing the existing
+                # parser's acceptance/rejection behavior in this diagnostic patch.
+                if trace and isinstance(event, dict) and type(event.get("code")) is int and event["code"] != 0:
+                    trace.log("model.provider_business_error", status_code=resp.status_code, provider_code=event["code"])
                 if event.get("error"):
-                    raise LLMError("模型流返回错误")
+                    error = LLMError("模型流返回错误")
+                    provider_error = event["error"]
+                    if isinstance(provider_error, dict) and type(provider_error.get("code")) is int:
+                        error.provider_code = provider_error["code"]
+                    raise error
                 choices = event.get("choices", [])
                 if not choices:
                     continue  # optional usage-only frame
                 choice = choices[0]
                 if choice.get("finish_reason") not in (None, "stop"):
-                    raise LLMError("模型回答被截断或过滤", "model_truncated" if choice.get("finish_reason") == "length" else "model_filtered")
+                    error = LLMError("模型回答被截断或过滤", "model_truncated" if choice.get("finish_reason") == "length" else "model_filtered")
+                    error.finish_reason = choice.get("finish_reason")
+                    raise error
                 # Never expose reasoning_content from reasoning models.
                 delta = choice.get("delta", {}).get("content", "")
                 if delta is None:

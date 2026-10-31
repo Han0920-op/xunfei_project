@@ -3,7 +3,7 @@ import io
 import json
 import unittest
 from contextlib import ExitStack
-from unittest.mock import patch
+from unittest.mock import patch, ANY
 
 from fastapi.testclient import TestClient
 from PIL import Image
@@ -53,7 +53,7 @@ class DialogueTests(unittest.TestCase):
             order.append("vision")
             return observed
 
-        def model(messages):
+        def model(messages, **_kwargs):
             order.append("model")
             self.assertIn(observed, json.dumps(messages, ensure_ascii=False))
             return checked("从这张远景看，不能确认病害。你最担心哪一处变化？请补拍那一处近景。")
@@ -87,7 +87,7 @@ class DialogueTests(unittest.TestCase):
             with patch.object(dialogue.tools, "execute", return_value=json.dumps(weather, ensure_ascii=False)) as execute:
                 events = list(dialogue.run_turn("今天的天气适合处理吗？", history))
         self.assertIn("河南郑州", json.dumps(model.call_args_list[0].args[0], ensure_ascii=False))
-        execute.assert_called_once_with("get_weather", {"location": "郑州"})
+        execute.assert_called_once_with("get_weather", {"location": "郑州"}, trace=ANY)
         result = next(e for e in events if e["type"] == "tool_result")
         self.assertEqual(result["result"]["status"], "ok")
         self.assertIn("多云", answers(events))
@@ -183,7 +183,7 @@ class DialogueTests(unittest.TestCase):
             with patch.object(dialogue.llm, "chat_stream", return_value=call):
                 with patch.object(dialogue.tools, "execute", wraps=original_execute) as execute:
                     events = list(dialogue.run_turn("我确认登记号PD20250010，防治小麦赤霉病", [], png()))
-        execute.assert_called_once_with("check_pesticide", {"registration_number": "PD20250010", "target": "赤霉病"})
+        execute.assert_called_once_with("check_pesticide", {"registration_number": "PD20250010", "target": "赤霉病"}, trace=ANY)
         self.assertIn("这张照片尚未完成识别", answers(events))
         self.assertIn("暂不能据此施药", answers(events))
         self.assertEqual(events[-1]["type"], "done")

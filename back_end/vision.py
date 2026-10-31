@@ -104,7 +104,10 @@ def understand_image(image_bytes: bytes, question: str) -> str:
                 raise VisionError("图片理解未返回完整结果，请重试。")
             data = json.loads(raw)
             if data["header"]["code"] != 0:
-                raise VisionError("图片理解接口未成功完成请求，请检查配置或稍后重试。")
+                error = VisionError("图片理解接口未成功完成请求，请检查配置或稍后重试。")
+                if type(data["header"]["code"]) is int:
+                    error.provider_code = data["header"]["code"]
+                raise error
             choices = data["payload"]["choices"]
             content = choices["text"][0]["content"]
             if not isinstance(content, str):

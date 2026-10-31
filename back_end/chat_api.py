@@ -19,6 +19,7 @@ import config
 import dialogue
 from runtime import APP_VERSION, STREAM_PROTOCOL
 from chat_errors import error_event
+from diagnostics import Trace
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -66,6 +67,7 @@ def capabilities():
     return JSONResponse({
         "server_version": APP_VERSION,
         "stream_protocol": STREAM_PROTOCOL,
+        "diagnostics_version": "safe-trace-v1",
         "chat_configured": bool(config.SPARK_API_PASSWORD),
         "vision_configured": all([config.XFYUN_APP_ID, config.XFYUN_API_KEY, config.XFYUN_API_SECRET]),
         "weather_configured": bool(config.WEATHER_API_KEY),
@@ -117,9 +119,12 @@ async def chat(message: str = Form(""), history: str = Form("[]"), image: Upload
     if not message.strip() and not image_bytes:
         raise HTTPException(400, "请先说说情况，或选择一张照片再发送。")
 
+    request_id = uuid.uuid4().hex[:12]
+
     def events():
         started = time.monotonic()
-        request_id = uuid.uuid4().hex[:12]
+        trace = Trace(request_id)
+        trace.log("sse.start", history_messages=len(messages), has_image=bool(image_bytes))
         metrics = {"model_calls": 0, "upstream_content_chunks": 0}
         delta_count = 0
         first_delta = last_delta = None
@@ -127,9 +132,10 @@ async def chat(message: str = Form(""), history: str = Form("[]"), image: Upload
                                       "stream_protocol": STREAM_PROTOCOL}) + "\n\n"
         def guarded_turn():
             try:
-                with closing(dialogue.run_turn(message, [m.model_dump() for m in messages], image_bytes, metrics=metrics)) as turn:
+                with closing(dialogue.run_turn(message, [m.model_dump() for m in messages], image_bytes, metrics=metrics, trace=trace)) as turn:
                     yield from turn
-            except Exception:
+            except Exception as exc:
+                trace.log("sse.generator_failed", exc=exc)
                 yield error_event("internal_error")
 
         for event in guarded_turn():
@@ -143,10 +149,11 @@ async def chat(message: str = Form(""), history: str = Form("[]"), image: Upload
                 if first_delta is None:
                     first_delta = last_delta
             if event["type"] in ("done", "error"):
+                trace.log("sse." + event["type"], **metrics)
                 stats = {"type": "stream_stats", **metrics, "answer_delta_events": delta_count,
                          "first_answer_ms": first_delta, "last_answer_ms": last_delta,
                          "total_ms": round((time.monotonic() - started) * 1000)}
                 yield "data: " + json.dumps(stats) + "\n\n"
             yield "data: " + json.dumps(event, ensure_ascii=False) + "\n\n"
 
-    return StreamingResponse(events(), media_type="text/event-stream", headers=SSE_HEADERS)
+    return StreamingResponse(events(), media_type="text/event-stream", headers={**SSE_HEADERS, "X-Request-ID": request_id})

@@ -22,7 +22,7 @@ class EvidenceStreamTests(unittest.TestCase):
         history = [dict(role='user', content='帮我看看旧图'), dict(role='assistant', content='【此前该轮图片的初步观察，非本轮新识别】金黄麦穗\n【此前回答】10月正常收获，立即收获。')]
         answer = '这张图呈幼苗状，叶片黄化不能按成熟衰老处理。照片是什么时候拍的？'
 
-        def model(messages):
+        def model(messages, **_kwargs):
             all_text = json.dumps(messages, ensure_ascii=False)
             self.assertNotIn('10月正常收获，立即收获', all_text)
             self.assertIn('金黄麦穗', all_text)

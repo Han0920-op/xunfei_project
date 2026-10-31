@@ -49,7 +49,7 @@ def tools_prompt() -> str:
     return "\n".join(lines)
 
 
-def execute(name: str, args: dict) -> str:
+def execute(name: str, args: dict, *, trace=None) -> str:
     """按名称执行工具，返回 JSON 字符串结果；任何错误都封装成 JSON 回传，不抛异常。
 
     这样设计是为了让「工具失败」也能作为一条普通结果拼回对话，交给模型决定
@@ -62,10 +62,19 @@ def execute(name: str, args: dict) -> str:
             ensure_ascii=False,
         )
     try:
-        return tool.func(**(args or {}))
+        if trace:
+            trace.log("tool.start", tool=name)
+        result = tool.func(**(args or {}))
+        if trace:
+            trace.log("tool.returned", tool=name)
+        return result
     except TypeError as exc:
+        if trace:
+            trace.log("tool.execute_failed", exc=exc, tool=name)
         return json.dumps({"error": f"工具参数错误：{exc}"}, ensure_ascii=False)
     except Exception as exc:  # 工具内部出错也不打断 Agent 循环
+        if trace:
+            trace.log("tool.execute_failed", exc=exc, tool=name)
         return json.dumps({"error": f"工具执行失败：{exc}"}, ensure_ascii=False)
 
 

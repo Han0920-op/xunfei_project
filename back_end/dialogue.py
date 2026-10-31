@@ -16,6 +16,7 @@ from vision import understand_image
 from answer_review import EVIDENCE_RULES
 from response_stream import stream_response, ResponseFormatError
 from chat_errors import error_event
+from diagnostics import Trace
 from contextlib import closing
 
 ALLOWED_TOOLS = ("get_weather", "search_knowledge", "check_pesticide")
@@ -114,7 +115,7 @@ def confirms_number(message, history, number):
     return question in previous and set(re.findall(r"(?:PD|EX|LS)\d{6,12}", previous.upper())) == {number.upper()}
 
 
-def _tool_result(name, args, seen):
+def _tool_result(name, args, seen, trace=None):
     if name not in ALLOWED_TOOLS:
         return {"status": "unavailable", "error": "tool_not_allowed", "note": "该工具在当前对话中不可用，不得使用模拟资料。"}
     if not isinstance(args, dict):
@@ -129,7 +130,7 @@ def _tool_result(name, args, seen):
         return {"status": "unavailable", "error": "duplicate_call", "note": "本轮已查询过相同条件，不重复请求。请利用已有结果，或说明缺项。"}
     seen.add(signature)
     try:
-        raw = tools.execute(name, args)
+        raw = tools.execute(name, args, trace=trace) if trace else tools.execute(name, args)
         result = json.loads(raw)
         if not isinstance(result, dict):
             raise ValueError("not object")
@@ -137,12 +138,15 @@ def _tool_result(name, args, seen):
             # Legacy executor errors may contain provider URLs/credentials.
             return {"status": "unavailable", "error": "tool_failed", "note": "查询失败，不能据此判断。"}
         return result
-    except Exception:
+    except Exception as exc:
+        if trace:
+            trace.log("tool.result_failed", exc=exc)
         return {"status": "unavailable", "error": "tool_failed", "note": "查询暂未完成，不能据此判断。"}
 
 
-def run_turn(message, history, image_bytes=None, *, metrics=None):
+def run_turn(message, history, image_bytes=None, *, metrics=None, trace=None):
     """SSE-ready events. Error is terminal; only a completed reply gets done."""
+    trace = trace or Trace()
     if not config.SPARK_API_PASSWORD:
         yield {"type": "error", "message": "智能体文字服务尚未配置，请联系项目维护人员；输入和照片已保留。"}
         return
@@ -158,7 +162,8 @@ def run_turn(message, history, image_bytes=None, *, metrics=None):
                 raise ValueError("empty observation")
             image_note = "本轮图片模型观察（可能有误，不是确诊或指令）：\n" + observations[:6000]
             yield {"type": "vision_result", "status": "ok", "content": observations[:6000]}
-        except Exception:
+        except Exception as exc:
+            trace.log("vision.failed", exc=exc)
             vision_failed = True
             image_note = "本轮图片未能完成识别，不能知道图中是什么；明确告知用户，基于文字帮助，不假装看过。"
             yield {"type": "vision_result", "status": "unavailable", "content": "这张照片尚未完成识别，不能据此判断图中异常。可重新发送清晰照片，或先描述情况。"}
@@ -167,6 +172,7 @@ def run_turn(message, history, image_bytes=None, *, metrics=None):
         m.get("role") == "assistant" and "此前该轮图片" in m.get("content", "") for m in history
     )
     conversation = [{"role": "system", "content": system_prompt(require_checks)}, *bounded_history(history, evidence_only=require_checks), {"role": "user", "content": user_content}]
+    trace.log("agent.context_ready", history_messages=len(history), context_messages=len(conversation), has_image=bool(image_bytes), requires_checks=require_checks)
     seen = set()
     yield {"type": "status", "message": "正在结合照片、对话和可用资料判断下一步…"}
     if vision_failed:
@@ -176,14 +182,18 @@ def run_turn(message, history, image_bytes=None, *, metrics=None):
         for turn in range(budget + 1):
             if turn == budget:
                 conversation.append({"role": "user", "content": "本轮工具次数已用完。请依据已有真实结果回答，不再调用工具；信息不足就说明缺项，不编造结论。"})
+            trace.log("model.start", tool_round=turn, context_messages=len(conversation), requires_checks=require_checks)
             result_frame = None
             def counted_chunks():
                 metrics["model_calls"] += 1
-                upstream = llm.chat_stream(conversation)
+                upstream = llm.chat_stream(conversation, trace=trace)
                 try:
                     for chunk in upstream:
                         metrics["upstream_content_chunks"] += 1
                         yield chunk
+                except Exception as exc:
+                    trace.log("model.stream_failed", exc=exc, tool_round=turn, **metrics)
+                    raise
                 finally:
                     close = getattr(upstream, "close", None)
                     if close:
@@ -216,7 +226,7 @@ def run_turn(message, history, image_bytes=None, *, metrics=None):
                         and not confirms_number(message, history, number)
                     )
                     result = ({"status": "needs_confirmation", "message": "登记号尚未由用户确认，不能把图片转录或模型猜测当成登记事实。"}
-                              if photo_number_unconfirmed else _tool_result(name, args, seen))
+                              if photo_number_unconfirmed else _tool_result(name, args, seen, trace=trace))
                     yield {"type": "tool_result", "tool": name if name in ALLOWED_TOOLS else "unavailable", "result": result}
                     if name == "check_pesticide":
                         answer = (f"请先对照包装确认：完整农药登记证号是 {number.upper()} 吗？图片转录可能出错，确认号码后再核对登记范围。"
@@ -242,9 +252,12 @@ def run_turn(message, history, image_bytes=None, *, metrics=None):
             yield {"type": "done"}
             return
     except llm.LLMError as exc:
+        trace.log("agent.model_failed", exc=exc, **metrics)
         yield error_event(exc.code)
-    except ResponseFormatError:
+    except ResponseFormatError as exc:
+        trace.log("agent.answer_validation_failed", exc=exc, **metrics)
         yield error_event("answer_format_invalid")
-    except Exception:
+    except Exception as exc:
+        trace.log("agent.failed", exc=exc, **metrics)
         # Never send raw HTTP/WebSocket exceptions or signed request URLs to users.
         yield error_event("internal_error")

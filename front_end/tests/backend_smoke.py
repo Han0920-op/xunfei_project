@@ -36,7 +36,7 @@ def checked(text):
 class FreeChatIntegration(unittest.TestCase):
     def test_http_first_delta_precedes_model_completion(self):
         release = threading.Event()
-        def upstream(_messages):
+        def upstream(_messages, **_kwargs):
             yield '第一段已经生成。'
             if not release.wait(8):
                 raise RuntimeError('test did not receive an incremental event')
@@ -92,7 +92,7 @@ class FreeChatIntegration(unittest.TestCase):
                 self.assertFalse(thread.is_alive())
 
     def test_photo_context_weather_registration_and_missing_config(self):
-        def decide(messages):
+        def decide(messages, **_kwargs):
             latest = messages[-1]['content']
             if latest.startswith('【工具执行结果'):
                 result = json.loads(latest.split('\n', 1)[1])
