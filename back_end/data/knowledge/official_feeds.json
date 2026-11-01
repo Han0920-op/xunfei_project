@@ -1,0 +1,9 @@
+{
+  "publisher": "农业农村部网站",
+  "index_url": "https://www.moa.gov.cn/xw/zwdt/",
+  "seed_urls": [
+    "https://www.moa.gov.cn/xw/zwdt/202604/t20260420_6483403.htm",
+    "https://www.moa.gov.cn/xw/zwdt/202602/t20260228_6481761.htm"
+  ],
+  "notice": "种子链接仅用于取得可追溯原文，不能冒充当前风险。分类、适用地区、有效期须本地维护人员逐项核对；独立农技审校状态始终单独标记。"
+}

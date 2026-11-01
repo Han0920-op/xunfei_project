@@ -1,0 +1,44 @@
+{
+  "checked_at": "2026-11-01T10:20:16.952145+08:00",
+  "notice": "只验证来源可访问及原文元数据，不代表农技审校或当前风险。",
+  "documents": [
+    {
+      "id": "32efabad99444af080d581b1",
+      "title": "农业农村部部署小麦赤霉病防控工作",
+      "url": "https://www.moa.gov.cn/xw/zwdt/202604/t20260420_6483403.htm",
+      "publisher": "农业农村部网站",
+      "published_on": "2026-04-20",
+      "retrieved_at": "2026-11-01T10:20:13.605255+08:00",
+      "sha256": "ae397c6d7f5806ea95c063ea3f78c94fe8f46bc4ad22644d7ac2b1bbf38b8ac8",
+      "kind": "unclassified",
+      "regions": [],
+      "pests": [],
+      "valid_until": "",
+      "review_status": "pending_metadata_review",
+      "agronomic_review": "pending_review",
+      "reviewed_by": "",
+      "review_note": "",
+      "currently_applicable": false,
+      "excerpt": "本网讯　当前，全国冬小麦自南往北陆续进入穗期生长阶段。既是产量形成关键时节，也是穗期病虫害防控关键时期。近期，长江流域、江淮、黄淮等麦区雨水偏多，赤霉病重发流行风险增加。农业农村部要求各地切实加强预防控制工作。一要强化组织发动，压实防控责任，确保防控工作有序开展；二要强化监测预警，明确重点防控区域、最佳防控时间；三要强化科学防控，选用对路高效药剂及时喷施作业；四要强化统防统治，充分发挥专业化防治服务组织骨干和示范带动作用，着力提升防控效果和效率；五要强化指导服务，组派精干力量、深入防控一线开展服务指导，推动防控工作和技术措施落实到位到田。同时，农业农村部派出5个专家组，4月下旬至5月上旬赴江苏、安徽、河南等10个小麦主产省份开展巡回指导，协助各地抓好防控工作。"
+    },
+    {
+      "id": "8756ef330bc0a52fa5e09cbf",
+      "title": "农业农村部持续开展小麦强春管促壮苗技术指导",
+      "url": "https://www.moa.gov.cn/xw/zwdt/202602/t20260228_6481761.htm",
+      "publisher": "农业农村部网站",
+      "published_on": "2026-02-28",
+      "retrieved_at": "2026-11-01T10:20:16.951783+08:00",
+      "sha256": "14d415c9a9a3215b79ede77ebacf63695d46b7bdddcc231b86631f320f592146",
+      "kind": "unclassified",
+      "regions": [],
+      "pests": [],
+      "valid_until": "",
+      "review_status": "pending_metadata_review",
+      "agronomic_review": "pending_review",
+      "reviewed_by": "",
+      "review_note": "",
+      "currently_applicable": false,
+      "excerpt": "本网讯　当前，冬小麦由南向北陆续返青，是加强春季田管、促进苗情转化的关键期。农业农村部推进实施奋战140天强春管促壮苗抗灾夺夏粮丰收行动，持续开展“促壮苗农技百日行”，制定印发小麦强春管促壮苗技术手册，组织部小麦专家指导组和科技小分队深入一线开展技术指导，举办线上培训班、春耕大师课，指导各地分苗分类、因墒因地，落实落细镇压划锄、浇水施肥、病虫防控、化学除草等关键措施，全力以赴促进苗情转化升级。"
+    }
+  ]
+}

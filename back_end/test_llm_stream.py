@@ -53,6 +53,22 @@ class LLMStreamTests(unittest.TestCase):
                 list(llm.chat_stream([]))
             response.close.assert_called_once()
 
+    def test_zero_business_code_and_usage_only_frames_preserve_normal_stream(self):
+        response=self.response([b'data: {"code":0,"usage":{"total_tokens":1}}',b'data: {"code":"0"}',frame({'content':'正常'}),b'data: [DONE]'])
+        with patch.object(config,'SPARK_API_PASSWORD','test'),patch.object(llm.requests,'post',return_value=response):
+            self.assertEqual(list(llm.chat_stream([])),['正常'])
+        response.close.assert_called_once()
+
+    def test_top_level_business_failure_is_not_silently_treated_as_usage_frame(self):
+        for code in (10013, "10013"):
+            response = self.response([('data: '+json.dumps({'code':code,'message':'private provider text'})).encode(), b'data: [DONE]'])
+            with patch.object(config,'SPARK_API_PASSWORD','test'),patch.object(llm.requests,'post',return_value=response),self.assertRaises(llm.LLMError) as caught:
+                list(llm.chat_stream([]))
+            self.assertEqual(caught.exception.provider_code,10013)
+            self.assertEqual(caught.exception.code,'model_request_failed')
+            self.assertNotIn('private',str(caught.exception))
+            response.close.assert_called_once()
+
     def test_cancelling_stream_closes_response_and_non_200_closes_response(self):
         for status in [200, 401]:
             response = self.response([frame({'content':'第一段'}), frame({'content':'第二段'}), b'data: [DONE]'], status)

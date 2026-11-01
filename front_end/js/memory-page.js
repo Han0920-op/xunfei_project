@@ -9,6 +9,15 @@
     caseData,
     caseList = [],
     query = "";
+  const dateText = (value) =>
+    new Date(value).toLocaleString("zh-CN", {
+      timeZone: "Asia/Shanghai",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   function factCard(f) {
     return `<article class="personal-card"><span class="personal-badge">${f.case_id ? "本次案例事实" : "用户长期资料"} · 你已确认</span><h2>${esc(f.label)}</h2><p class="personal-note">${esc(f.content)}</p><div class="card-actions"><button class="text-button" data-edit-fact="${esc(f.id)}">更正</button><button class="text-button" data-delete-fact="${esc(f.id)}">删除记忆</button></div></article>`;
   }
@@ -18,11 +27,11 @@
     caseList = query
       ? await api("search", "POST", { query })
       : await api("cases");
-    root.innerHTML = `<div class="personal-heading"><div><span class="page-eyebrow">${icon("book")}你确认的资料，持续帮助之后的判断</span><h1>${caseData ? esc(caseData.title) : "长期记忆"}</h1><p>用户描述、图片观察、模型判断与已确认事实分别保存。</p></div><button class="button primary" data-add-fact>${icon("plus")}添加确认资料</button></div><p class="error" id="memoryError" role="alert"></p><div class="personal-banner"><p>新会话会按需读取已确认资料；旧案例先由你确认关联。<small>当前仅保存案例文字、观察摘要和查询依据，照片仍在原设备。</small></p></div>
+    root.innerHTML = `<div class="personal-heading"><div><span class="page-eyebrow">${icon("book")}你确认的资料，持续帮助之后的判断</span><h1>${caseData ? esc(caseData.title) : "长期记忆"}</h1><p>用户描述、图片观察、模型判断与已确认事实分别保存。</p></div><button class="button primary" data-add-fact>${icon("plus")}添加确认资料</button></div><p class="error" id="memoryError" role="alert"></p><div class="personal-banner"><p>新会话会按需读取已确认资料；旧案例先由你确认关联。<small>新诊断照片以去除定位信息的压缩副本保存到案例；旧设备照片需自行补充。</small></p></div>
  <h2 class="memory-section-title">${caseData ? "本次已确认事实" : "用户长期资料"}</h2><div class="personal-grid">${(caseData?.facts || profile.facts).map(factCard).join("") || '<p class="personal-note">尚未保存确认资料。可以告诉智麦“请记住……”，确认后再入库。</p>'}</div>
  ${
    caseData
-     ? `<h2 class="memory-section-title">案例时间线</h2><a class="button secondary" href="index.html?case=${encodeURIComponent(caseData.id)}">确认是这次，继续咨询</a>${caseData.turns.map((t) => `<article class="personal-card memory-timeline"><small>${esc(t.created_at)}</small><span class="personal-badge">用户描述 · 未独立核实</span><p>${esc(t.user.text)}</p>${(t.assistant.vision || []).map((v) => `<span class="personal-badge amber-badge">视觉观察 · 可能有误</span><p>${esc(v.content)}</p>`).join("")}<span class="personal-badge muted-badge">模型判断 · 未确诊</span><p>${esc(t.assistant.text)}</p></article>`).join("")}`
+     ? `<h2 class="memory-section-title">案例时间线</h2><a class="button secondary" href="index.html?case=${encodeURIComponent(caseData.id)}">确认是这次，继续咨询</a>${caseData.turns.map((t) => `<article class="personal-card memory-timeline"><small>${esc(dateText(t.created_at))}</small><span class="personal-badge">用户描述 · 未独立核实</span><p>${esc(t.user.text)}</p>${(t.assistant.vision || []).map((v) => `<span class="personal-badge amber-badge">视觉观察 · 可能有误</span><p>${esc(v.content)}</p>`).join("")}<span class="personal-badge muted-badge">模型判断 · 未确诊</span><p>${esc(t.assistant.text)}</p></article>`).join("")}`
      : `<h2 class="memory-section-title">服务端案例</h2><label class="personal-search">${icon("search")}<input id="caseSearch" type="search" placeholder="按症状查旧案例" aria-label="搜索服务端案例" value="${esc(query)}"></label><div id="serverCases"></div><h2 class="memory-section-title">旧设备记录</h2><p class="personal-note">选择“同步文字”才会上传旧记录；演示记录不入库，不上传旧照片。</p><div class="personal-grid">${
          FarmerStore.records()
            .filter((r) => !r.demo && !caseList.some((c) => c.id === r.id))
@@ -33,7 +42,8 @@
            .join("") || '<p class="personal-note">没有待同步的本机记录。</p>'
        }</div>`
  }
- <h2 class="memory-section-title">身份恢复</h2><p class="personal-note">在新设备打开智麦后可用恢复码找回同一份服务端资料。请离线保管恢复码，不要发给别人；本机照片不会随之迁移。${profile.recovery_enabled ? "已设置恢复码；重置后旧码失效。" : "尚未设置恢复码。"}</p><button class="button secondary" id="recovery">${profile.recovery_enabled ? "重置恢复码" : "生成恢复码"}</button><button class="button secondary" id="restore">用恢复码找回资料</button><p><a class="text-button" href="history.html">返回我的记录</a></p>`;
+ <h2 class="memory-section-title">身份恢复</h2><p class="personal-note">在新设备打开智麦后可用恢复码找回同一份服务端资料。请离线保管恢复码，不要发给别人；新保存的案例照片可找回；旧本机照片不会自动迁移。${profile.recovery_enabled ? "已设置恢复码；重置后旧码失效。" : "尚未设置恢复码。"}</p><button class="button secondary" id="recovery">${profile.recovery_enabled ? "重置恢复码" : "生成恢复码"}</button><button class="button secondary" id="restore">用恢复码找回资料</button><p><a class="text-button" href="history.html">返回我的记录</a></p>`;
+    if (caseData) await CaseworkUI.mount(root, caseData);
     if (!caseData) {
       drawCases();
       let timer;

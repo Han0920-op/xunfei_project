@@ -86,7 +86,9 @@ def get_case(who, case_id):
     with db() as c:
         row=owned(c,who,case_id)
         turns=[{**json.loads(r['body']),'created_at':r['created'],'turn_id':r['id']} for r in reversed(c.execute('SELECT * FROM memory_turns WHERE owner=? AND case_id=? ORDER BY created DESC,rowid DESC LIMIT 200',(who,case_id)).fetchall())]
-    return {**case_meta(row),'turns':turns,'facts':facts(who,case_id),'photos_stored':False}
+    import casework
+    detail=casework.snapshot(who,case_id)
+    return {**case_meta(row),'turns':turns,'facts':facts(who,case_id),'photos_stored':bool(detail['photos']),**detail}
 
 
 def fact_context(who, case_id=None):
@@ -100,8 +102,9 @@ def fact_context(who, case_id=None):
     return items[:20]
 
 
-def save_turn(who,case_id,turn_id,message,answer,vision,tool_results,has_image,photo_id=""):
+def save_turn(who,case_id,turn_id,message,answer,vision,tool_results,has_image,photo_id="",image_bytes=None,assessment=None):
     identifier(case_id);identifier(turn_id)
+    if image_bytes and not photo_id:photo_id=secrets.token_hex(16)
     body={'user':{'id':turn_id+'-u','role':'user','text':message or '帮我看看这张照片','source_type':'user_reported','had_image':bool(has_image), 'photoId':photo_id if has_image else ''},
           'assistant':{'id':turn_id+'-a','role':'assistant','type':'agent','text':answer,'source_type':'model_inference',
                        'vision':vision,'toolResults':tool_results,'notice':'模型判断未确诊，不自动写入已确认事实'}}
@@ -117,7 +120,11 @@ def save_turn(who,case_id,turn_id,message,answer,vision,tool_results,has_image,p
         if other and (other['owner']!=who or other['case_id']!=case_id):raise HTTPException(409,'请求编号已使用')
         inserted=c.execute('INSERT OR IGNORE INTO memory_turns VALUES(?,?,?,?,?)',(turn_id,case_id,who,json.dumps(body,ensure_ascii=False),personal.now().isoformat()))
         if inserted.rowcount:
+            if existing and existing['archived']:raise HTTPException(409,'案例已经结束，请先重新打开再补充记录')
             c.execute('UPDATE memory_cases SET updated=?,archived=0 WHERE id=?',(personal.now().isoformat(),case_id))
+            import casework
+            casework.ensure(c)
+            casework.add_turn(c,who,case_id,turn_id,message,vision,tool_results,image_bytes,photo_id,assessment)
 
 
 class Fact(BaseModel):
@@ -158,6 +165,11 @@ def update_case(case_id:str,item:CaseEdit,request:Request):
     who=write_owner(request)
     with db() as c:
         owned(c,who,case_id)
+        import casework
+        state=casework.read_state(c,who,case_id)
+        state['status']='closed' if item.archived else 'collecting' if state['status']=='closed' else state['status']
+        casework.put_state(c,who,case_id,state)
+        if item.archived:casework.cancel_case_tasks(c,who,case_id)
         c.execute('UPDATE memory_cases SET title=?,archived=?,updated=? WHERE owner=? AND id=?',(item.title,int(item.archived),personal.now().isoformat(),who,case_id))
     return {'saved':True}
 
@@ -167,6 +179,10 @@ def delete_case(case_id:str,request:Request):
     who=write_owner(request)
     with db() as c:
         c.execute('BEGIN IMMEDIATE');owned(c,who,case_id)
+        import casework
+        casework.ensure(c);casework.cancel_case_tasks(c,who,case_id,remove=True)
+        for table in ('case_states','case_events','case_photos','case_reports'):
+            c.execute(f'DELETE FROM {table} WHERE owner=? AND case_id=?',(who,case_id))
         c.execute('DELETE FROM memory_facts WHERE owner=? AND case_id=?',(who,case_id))
         c.execute('DELETE FROM memory_turns WHERE owner=? AND case_id=?',(who,case_id))
         c.execute('DELETE FROM memory_cases WHERE owner=? AND id=?',(who,case_id))

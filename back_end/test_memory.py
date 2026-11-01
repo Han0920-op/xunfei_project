@@ -99,14 +99,18 @@ class MemoryTests(unittest.TestCase):
   case=self.a.get('/api/memory/cases/old').json()
   self.assertEqual(case['facts'],[]);self.assertEqual(case['turns'][0]['assistant']['source_type'],'imported_unverified_inference')
   self.assertEqual(self.a.post('/api/memory/import',json=body,headers=self.headers).status_code,409)
- def test_image_observation_is_saved_but_not_original_image(self):
+ def test_image_observation_and_private_compressed_copy_are_saved(self):
   from test_dialogue import png,checked
   content=png()
   with patch.object(config,'SPARK_API_PASSWORD','test'),patch.object(dialogue,'understand_image',return_value='幼苗叶尖发黄，不能确诊'),patch.object(dialogue.llm,'chat_stream',return_value=iter([checked('请补拍叶背。')])):
    response=self.a.post('/api/agent/chat',headers={'X-Zhimai-Stream-Protocol':STREAM_PROTOCOL},data={'message':'帮我看叶片','case_id':'photo-case','turn_id':'photo-turn','photo_id':'local-photo'},files={'image':('photo.png',content,'image/png')})
   self.assertIn('memory_saved',response.text)
   case=self.a.get('/api/memory/cases/photo-case').json()
-  self.assertFalse(case['photos_stored']);self.assertTrue(case['turns'][0]['user']['had_image'])
+  self.assertTrue(case['photos_stored']);self.assertTrue(case['turns'][0]['user']['had_image'])
+  photo=self.a.get(case['photos'][0]['serverUrl'])
+  self.assertEqual(photo.headers['content-type'],'image/jpeg')
+  self.assertNotEqual(photo.content,content)
+  self.assertEqual(self.b.get(case['photos'][0]['serverUrl']).status_code,404)
   self.assertEqual(case['turns'][0]['user']['photoId'],'local-photo')
   self.assertEqual(case['turns'][0]['assistant']['vision'][0]['content'],'幼苗叶尖发黄，不能确诊')
   import base64

@@ -3164,3 +3164,137 @@ dialog footer {
 .memory-card strong {
   overflow-wrap: anywhere;
 }
+
+/* Cases and regional subscriptions share the existing calm green workspace. */
+.case-workspace {
+  margin: 30px 0 44px;
+}
+.case-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 28px 0;
+}
+.case-summary h2 {
+  color: var(--green, #254f37);
+  margin: 10px 0;
+}
+.case-summary p,
+.case-workspace small {
+  color: var(--muted, #829179);
+}
+.case-workspace small {
+  display: block;
+  margin: 12px 0;
+  line-height: 1.7;
+}
+.case-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 18px 0;
+}
+.case-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+.case-detail-grid .personal-card {
+  min-width: 0;
+}
+.case-workspace h4 {
+  margin: 24px 0 12px;
+}
+.case-workspace ul {
+  padding-left: 24px;
+  line-height: 1.9;
+}
+.case-workspace select {
+  display: block;
+  width: 100%;
+  border: 1px solid #dce4d5;
+  border-radius: 10px;
+  background: #fafbf7;
+  padding: 12px;
+  margin: 12px 0;
+  color: #254f37;
+  font: inherit;
+}
+.case-photos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 18px;
+  margin: 22px 0;
+}
+.case-photos figure {
+  margin: 0;
+}
+.case-photos img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  border-radius: 16px;
+  background: #eef2e8;
+}
+.case-photos figcaption {
+  font-size: 12px;
+  color: #829179;
+  margin: 8px 0;
+}
+.case-thread-links {
+  margin-bottom: 20px;
+}
+.reminder-tabs a,
+.reminder-tabs > span {
+  padding: 16px 4px;
+  color: #829179;
+  text-decoration: none;
+}
+.reminder-tabs > span.selected {
+  color: #254f37;
+  border-bottom: 3px solid #254f37;
+}
+.subscription-pests {
+  border: 1px solid #dce4d5;
+  border-radius: 14px;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.subscription-pests label {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 8px 0;
+}
+.subscription-pests input {
+  width: auto;
+}
+@media (max-width: 700px) {
+  .case-summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .case-detail-grid {
+    grid-template-columns: 1fr;
+  }
+  .case-actions .button {
+    flex: 1;
+    justify-content: center;
+  }
+  .case-workspace .personal-card {
+    padding: 24px;
+  }
+  .reminder-tabs {
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+  .case-photos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.case-photos > p {
+  grid-column: 1/-1;
+}

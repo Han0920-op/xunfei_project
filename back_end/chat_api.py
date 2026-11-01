@@ -131,6 +131,10 @@ async def chat(request: Request, message: str = Form(""), history: str = Form("[
         memory.identifier(turn_id)
         if photo_id:memory.identifier(photo_id)
     confirmed=memory.fact_context(actor,case_id or None) if actor else []
+    if actor and case_id:
+        with memory.db() as c:
+            old=c.execute('SELECT archived FROM memory_cases WHERE owner=? AND id=?',(actor,case_id)).fetchone()
+            if old and old['archived']:raise HTTPException(409,'案例已结束，请先在案例页面重新打开，再继续咨询。')
     if actor and case_id and not messages:
         try:
             old_case=memory.get_case(actor,case_id)
@@ -154,6 +158,9 @@ async def chat(request: Request, message: str = Form(""), history: str = Form("[
             trace.owner = None
         trace.case_id=case_id or None
         trace.memory_facts=confirmed
+        import casework
+        try:trace.case_state=casework.snapshot(actor,case_id)['state'] if actor and case_id else None
+        except HTTPException:trace.case_state=None
         trace.log("sse.start", history_messages=len(messages), has_image=bool(image_bytes))
         metrics = {"model_calls": 0, "upstream_content_chunks": 0}
         delta_count = 0
@@ -179,7 +186,7 @@ async def chat(request: Request, message: str = Form(""), history: str = Form("[
             if event['type']=='answer':saved_answer=event['content']
             if event['type']=='done' and actor and case_id and saved_answer:
                 try:
-                    memory.save_turn(actor,case_id,turn_id,message,saved_answer,vision,tool_results,bool(image_bytes),photo_id)
+                    memory.save_turn(actor,case_id,turn_id,message,saved_answer,vision,tool_results,bool(image_bytes),photo_id,image_bytes,getattr(trace,'case_assessment',None))
                     yield 'data: '+json.dumps({'type':'memory_saved','case_id':case_id})+'\n\n'
                 except Exception as exc:
                     trace.log('memory.save_failed',exc=exc)

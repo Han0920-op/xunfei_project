@@ -7,7 +7,11 @@
     return (message.toolResults || [])
       .map((tool, index) => {
         if (
-          !["prepare_weather_check", "prepare_reminder"].includes(tool.tool) ||
+          ![
+            "prepare_weather_check",
+            "prepare_reminder",
+            "prepare_followup",
+          ].includes(tool.tool) ||
           tool.result?.status !== "draft"
         )
           return "";
@@ -30,6 +34,7 @@
           time: r.time || "08:00",
           location: r.location || "",
           enabled: true,
+          case_id: r.case_id || "",
         };
         bindings.set(key, body);
         const state = states.get(key) || {};

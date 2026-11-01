@@ -187,6 +187,13 @@
     return photo;
   }
   async function photoUrl(photo) {
+    if (
+      photo.serverUrl &&
+      /^\/api\/casework\/cases\/[A-Za-z0-9_-]+\/photos\/[A-Za-z0-9_-]+$/.test(
+        photo.serverUrl,
+      )
+    )
+      return photo.serverUrl;
     if (photo.legacyCaseId) {
       const c = (state.clinicalCases || []).find(
         (c) => c.id === photo.legacyCaseId,

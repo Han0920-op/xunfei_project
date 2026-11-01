@@ -113,10 +113,17 @@ def chat_stream(messages: list[dict], *, trace=None):
                 break
             try:
                 event = json.loads(data)
-                # Observe provider business errors without changing the existing
-                # parser's acceptance/rejection behavior in this diagnostic patch.
-                if trace and isinstance(event, dict) and type(event.get("code")) is int and event["code"] != 0:
-                    trace.log("model.provider_business_error", status_code=resp.status_code, provider_code=event["code"])
+                # Xunfei can send a business failure with HTTP 200 and no choices.
+                # Treat it as the original upstream failure, not an empty answer.
+                if isinstance(event, dict) and event.get("code") not in (None, 0, "0"):
+                    error = LLMError("模型服务返回业务错误", "model_request_failed")
+                    value = event["code"]
+                    if type(value) is int or isinstance(value, str) and value.isdecimal() and len(value) <= 6:
+                        number = int(value)
+                        if 0 <= number <= 999999:
+                            error.provider_code = number
+                            if trace: trace.log("model.provider_business_error", status_code=resp.status_code, provider_code=number)
+                    raise error
                 if event.get("error"):
                     error = LLMError("模型流返回错误")
                     provider_error = event["error"]

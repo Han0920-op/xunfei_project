@@ -21,6 +21,8 @@ from chat_api import router as farmer_agent_router
 from runtime import APP_VERSION, FrontendFiles
 import personal
 import memory
+import casework
+import agri_sources
 
 
 def _ensure_case_columns():
@@ -79,16 +81,20 @@ async def lifespan(app: FastAPI):
     # 旧案例没有 conversation_id 的，按识别描述唯一匹配尝试回填，不匹配的保持 None。
     _backfill_conversation_ids()
     scheduler_stop = personal.start()
+    sources_stop = agri_sources.start()
     try:
         yield
     finally:
         scheduler_stop.set()
+        sources_stop.set()
 
 
 app = FastAPI(title="智麦 农业智能体后端", version=APP_VERSION, lifespan=lifespan)
 app.include_router(farmer_agent_router)
 app.include_router(personal.router)
 app.include_router(memory.router)
+app.include_router(casework.router)
+app.include_router(agri_sources.router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

@@ -54,8 +54,10 @@
       : "智麦提醒 · 已到约定时间";
     const actions = document.createElement("div");
     const link = document.createElement("a");
-    link.href = "personal.html?tab=notifications";
-    link.textContent = "查看提醒";
+    link.href = item.case_id
+      ? "memory.html?case=" + encodeURIComponent(item.case_id)
+      : "personal.html?tab=notifications";
+    link.textContent = item.case_id ? "回到案例补图与复查" : "查看提醒";
     link.className = "button secondary";
     const ack = document.createElement("button");
     ack.className = "button primary";
@@ -93,6 +95,24 @@
       }
       badge(unread.length);
       for (const item of unread) {
+        if (
+          item.task_type === "regional" &&
+          item.quiet_start &&
+          item.quiet_end
+        ) {
+          const clock = new Date().toLocaleTimeString("sv-SE", {
+              timeZone: "Asia/Shanghai",
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            s = item.quiet_start,
+            e = item.quiet_end;
+          if (
+            s !== e &&
+            (s < e ? s <= clock && clock < e : clock >= s || clock < e)
+          )
+            continue;
+        }
         if (!delivered.has(item.id)) {
           delivered.add(item.id);
           if (
@@ -107,7 +127,9 @@
               });
               n.onclick = () => {
                 window.focus();
-                location.href = "personal.html?tab=notifications";
+                location.href = item.case_id
+                  ? "memory.html?case=" + encodeURIComponent(item.case_id)
+                  : "personal.html?tab=notifications";
               };
             } catch {}
           }

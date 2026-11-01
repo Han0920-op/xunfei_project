@@ -79,9 +79,10 @@ class Entry(BaseModel):
     location: str = Field(default='', max_length=80)
     time: str = Field(default='08:00', pattern=r'^([01]\d|2[0-3]):[0-5]\d$')
     enabled: bool = True
-    task_type: Literal['weather', 'reminder'] = 'weather'
+    task_type: Literal['weather', 'reminder', 'followup'] = 'weather'
     recurrence: Literal['daily', 'once'] = 'daily'
     run_at: str = Field(default='', max_length=40)
+    case_id: str = Field(default='', max_length=80, pattern=r'^[A-Za-z0-9_-]*$')
 
 
 def next_time(clock):
@@ -113,6 +114,8 @@ def due_time(item):
 
 
 def validate_task(item):
+    if item.task_type=='followup' and (not item.case_id or item.recurrence!='once'):
+        raise HTTPException(400,'案例复查需要关联案例和明确的一次性日期时间')
     if item.task_type == 'weather' and not weather._location_code(item.location):
         raise HTTPException(400, '请填写支持的城市（如郑州）或六位市县行政区编码')
     return due_time(item)
@@ -145,6 +148,9 @@ def save(kind: str, identifier: str, item: Entry, request: Request):
         old = c.execute('SELECT * FROM entries WHERE owner=? AND id=?', (who, identifier)).fetchone()
         if old and old['kind'] != kind:
             raise HTTPException(409, '记录编号已使用，请刷新后重试')
+        if kind=='tasks' and item.case_id:
+            # Same transaction prevents close/delete racing with task creation.
+            if not case_active(c,who,item.case_id):raise HTTPException(409,'案例不存在、已结束或不属于当前身份')
         data = item.model_dump()
         previous = json.loads(old['body']) if old else {}
         previous.pop('_revision', None)
@@ -181,6 +187,13 @@ def delete(kind: str, identifier: str, request: Request):
     return {'deleted': True}
 
 
+def case_active(c,who,case_id):
+    if not case_id:return True
+    # Legacy databases may not have a case table yet.
+    if not c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='memory_cases'").fetchone():return False
+    return bool(c.execute('SELECT 1 FROM memory_cases WHERE owner=? AND id=? AND archived=0',(who,case_id)).fetchone())
+
+
 def tick():
     current = now().isoformat()
     with db() as c:
@@ -201,7 +214,7 @@ def tick():
         # Check cancellation before paying for weather, then again before publish.
         with db() as c:
             active = c.execute('SELECT body FROM entries WHERE owner=? AND id=?', (r['owner'], r['task_id'])).fetchone()
-            if not active or active['body'] != r['body']:
+            if not active or active['body'] != r['body'] or not case_active(c,r['owner'],item.get('case_id','')):
                 c.execute('DELETE FROM jobs WHERE owner=? AND id=?', (r['owner'], r['id']))
                 continue
         result = None
@@ -217,9 +230,9 @@ def tick():
         with db() as c:
             c.execute('BEGIN IMMEDIATE')
             active = c.execute('SELECT body FROM entries WHERE owner=? AND id=?', (r['owner'], r['task_id'])).fetchone()
-            if active and active['body'] == r['body']:
+            if active and active['body'] == r['body'] and case_active(c,r['owner'],item.get('case_id','')):
                 payload = {'name': item['name'], 'message': message, 'weather': result, 'task_type': item.get('task_type', 'weather'),
-                           'created_at': now().isoformat(), 'scheduled_for': r['scheduled'], 'read': False}
+                           'case_id':item.get('case_id',''), 'created_at': now().isoformat(), 'scheduled_for': r['scheduled'], 'read': False}
                 c.execute('INSERT OR IGNORE INTO entries VALUES(?,?,?,?,?)', (r['owner'], r['id'], 'notifications', json.dumps(payload, ensure_ascii=False), ''))
                 if item.get('recurrence') == 'once':
                     item.update(enabled=False, _completed_at=now().isoformat())

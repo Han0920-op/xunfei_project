@@ -82,7 +82,12 @@
           ? { photoId: local.get(m.id).photoId }
           : {}),
       }));
-    // Photos already on this device remain accessible, but are not fetched from server.
+    record.photos = [
+      ...(c.photos || []),
+      ...(old?.photos || []).filter(
+        (p) => !(c.photos || []).some((s) => s.id === p.id),
+      ),
+    ];
     return record;
   }
   document.addEventListener("DOMContentLoaded", async () => {
@@ -114,7 +119,7 @@
         extra
           .map(
             (c) =>
-              `<article class="record-row"><a class="record-main" href="index.html?case=${encodeURIComponent(c.id)}"><div><span class="record-date">${esc(c.updated_at.slice(0, 10))} · 服务端保存</span><h2>${esc(c.title)}</h2><p>点击确认并继续这次案例；原照片仍在原设备。</p></div></a></article>`,
+              `<article class="record-row"><a class="record-main" href="index.html?case=${encodeURIComponent(c.id)}"><div><span class="record-date">${esc(c.updated_at.slice(0, 10))} · 服务端保存</span><h2>${esc(c.title)}</h2><p>点击确认并继续这次案例；新保存的案例照片也可恢复。</p></div></a></article>`,
           )
           .join("") +
         (extra.length

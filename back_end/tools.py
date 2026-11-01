@@ -165,3 +165,10 @@ register(Tool('prepare_reminder','准备普通提醒，不需要天气或地点�
 register(Tool('search_user_cases','检索当前用户旧案例，只返回候选摘要，用户确认后才关联；不能跨用户检索。',{'type':'object','properties':{'query':{'type':'string'}},'required':['query']},lambda **kwargs:'{}'))
 register(Tool('get_case_history','读取用户已确认关联的当前案例，其他案例需要先确认。',{'type':'object','properties':{'case_id':{'type':'string'}},'required':['case_id']},lambda **kwargs:'{}'))
 register(Tool('prepare_memory_fact','用户明确要求记住时准备确认卡，不直接写入；user是长期资料，case是本次已确认的症状或处理事实，不保存模型推断。',{'type':'object','properties':{'scope':{'type':'string','enum':['user','case']},'label':{'type':'string'},'content':{'type':'string'}},'required':['scope','label','content']},lambda **kwargs:'{}'))
+
+from agri_sources import search_agri_guidelines
+register(Tool('search_agri_guidelines','检索有效且地区相符的官方指导，返回来源、发布日期、适用条件和农技待审校状态；无依据时不编造。只检索观察内容，不是用药许可。',{'type':'object','properties':{'query':{'type':'string'},'region':{'type':'string'}},'required':['query']},search_agri_guidelines))
+register(Tool('record_case_assessment','为当前案例记录结构化初步判断。不能当成事实。assessment_json为JSON字符串，包含symptoms、growth_stage、candidate_causes字符串数组、missing_information字符串数组、review_required布尔值。一次只问1至2个关键缺项，最多3轮仍不清楚转农技复核。',{'type':'object','properties':{'assessment_json':{'type':'string'}},'required':['assessment_json']},lambda **kwargs:'{}'))
+register(Tool('compare_case_observations','比较当前案例前后图片观察和用户反馈，不能仅凭照片认定药效。',{'type':'object','properties':{},'required':[]},lambda:'{}'))
+register(Tool('generate_case_report','保存当前案例的证据与规则核对报告。报告保留不确定性，不提供未核验用药处方。',{'type':'object','properties':{},'required':[]},lambda:'{}'))
+register(Tool('prepare_followup','为已保存的当前案例准备一次复查提醒草案。时间须为用户确认的未来明确日期时间，不统一默认三天；concern写明补图及需对比的变化，用户点击后才保存。',{'type':'object','properties':{'run_at':{'type':'string'},'concern':{'type':'string'},'name':{'type':'string'}},'required':['run_at','concern']},lambda **kwargs:'{}'))

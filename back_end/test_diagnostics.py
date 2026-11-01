@@ -15,7 +15,7 @@ from test_dialogue import checked, sse, answers
 
 
 class DiagnosticTests(unittest.TestCase):
-    def test_provider_code_11200_reproduces_empty_response_chain(self):
+    def test_provider_code_11200_preserves_original_business_failure(self):
         # Observed provider frame shape, with a synthetic private message.
         response = Mock(status_code=200)
         response.iter_lines.return_value = iter([
@@ -23,12 +23,12 @@ class DiagnosticTests(unittest.TestCase):
         with patch.object(config,'SPARK_API_PASSWORD','test'), patch.object(llm.requests,'post',return_value=response), self.assertLogs('uvicorn.error',level='INFO') as logs:
             result = self.post()
         self.assertEqual(result.status_code,200)
-        self.assertEqual(sse(result)[-1]['code'],'answer_format_invalid')
+        self.assertEqual(sse(result)[-1]['code'],'model_request_failed')
         records = self.records(logs)
         provider = next(r for r in records if r['stage']=='model.provider_business_error')
         self.assertEqual(provider['provider_code'],11200)
-        failure = next(r for r in records if r['stage']=='agent.answer_validation_failed')
-        self.assertEqual(failure['exceptions'][-1]['reason'],'empty_model_response')
+        failure = next(r for r in records if r['stage']=='agent.model_failed')
+        self.assertEqual(failure['exceptions'][0]['provider_code'],11200)
         self.assertEqual(failure['request_id'],provider['request_id'])
         self.assertNotIn('private-provider-detail',''.join(logs.output))
 
