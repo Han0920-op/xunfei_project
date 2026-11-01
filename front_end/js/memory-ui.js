@@ -73,6 +73,9 @@
     record.updatedAt = c.updated_at;
     record.archived = c.archived;
     record.serverMemory = { saved: true, case_id: c.id };
+    const regional = c.state?.reference_region;
+    record.regionSubscriptionId =
+      regional?.status === "disabled" ? "none" : regional?.selected?.id || "";
     const local = new Map((old?.messages || []).map((m) => [m.id, m]));
     record.messages = c.turns
       .flatMap((t) => [t.user, t.assistant])

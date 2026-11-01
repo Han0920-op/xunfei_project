@@ -10,6 +10,7 @@
   const ui = {
     record: requested ? S.get(requested) : null,
     draft: "",
+    regionId: (requested ? S.get(requested)?.regionSubscriptionId : "") || "",
     photo: null,
     photoUrl: "",
     fileError: "",
@@ -32,7 +33,7 @@
     return `<figure class="saved-photo"><img data-photo="${esc(p.id)}" alt="${esc(p.name || "现场照片")}" loading="lazy">${caption ? `<figcaption>${esc(caption)}</figcaption>` : ""}</figure>`;
   }
   function composer() {
-    return `<div class="composer ${!ui.record && !ui.pending ? "home-composer" : ""}"><div class="attachment" ${ui.photo && !ui.pending ? "" : "hidden"}>${ui.photo && !ui.pending ? `<img src="${ui.photoUrl}" alt="待发送的照片"><span><strong>${esc(ui.photo.name)}</strong><small>已选好，还没发送</small></span><button class="icon-button" data-action="remove-photo" aria-label="移除待发送照片" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${icon("close")}</button>` : ""}</div>${ui.photoLoading ? '<p class="reading-photo"><span class="spinner"></span>正在读取照片…</p>' : ""}<p class="error" id="fileError" role="alert">${esc(ui.fileError)}</p><form id="messageForm"><label class="sr-only" for="messageInput">描述你看到的情况</label><textarea id="messageInput" rows="2" maxlength="4000" placeholder="直接说说情况，也可以问天气或核对手里的药…" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${ui.busy ? "" : esc(ui.draft)}</textarea><div class="composer-bottom"><button type="button" class="attach-button" data-action="photo" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${icon("camera")} ${ui.photo ? "换张照片" : "添加照片"}</button><button type="submit" id="sendButton" class="button primary" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${ui.busy ? '<span class="spinner"></span>正在处理' : "发给智麦 " + icon("arrow")}</button>${ui.busy ? '<button type="button" class="button secondary" data-action="stop">停止生成</button>' : ""}</div></form><p class="error" id="sendError" role="alert">${esc(ui.error)}</p>${ui.error ? '<button class="text-button" data-action="retry">重新发送</button>' : ""}<div class="composer-caption"><span>发送后交给服务及模型处理；对话与压缩照片保存到你的案例；照片定位信息会移除</span><span>Shift + Enter 换行</span></div></div>`;
+    return `<div class="composer ${!ui.record && !ui.pending ? "home-composer" : ""}"><div class="attachment" ${ui.photo && !ui.pending ? "" : "hidden"}>${ui.photo && !ui.pending ? `<img src="${ui.photoUrl}" alt="待发送的照片"><span><strong>${esc(ui.photo.name)}</strong><small>已选好，还没发送</small></span><button class="icon-button" data-action="remove-photo" aria-label="移除待发送照片" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${icon("close")}</button>` : ""}</div>${ui.photoLoading ? '<p class="reading-photo"><span class="spinner"></span>正在读取照片…</p>' : ""}<p class="error" id="fileError" role="alert">${esc(ui.fileError)}</p>${window.RegionalChat?.markup(ui.regionId, ui.busy) || ""}<form id="messageForm"><label class="sr-only" for="messageInput">描述你看到的情况</label><textarea id="messageInput" rows="2" maxlength="4000" placeholder="直接说说情况，也可以问天气或核对手里的药…" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${ui.busy ? "" : esc(ui.draft)}</textarea><div class="composer-bottom"><button type="button" class="attach-button" data-action="photo" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${icon("camera")} ${ui.photo ? "换张照片" : "添加照片"}</button><button type="submit" id="sendButton" class="button primary" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${ui.busy ? '<span class="spinner"></span>正在处理' : "发给智麦 " + icon("arrow")}</button>${ui.busy ? '<button type="button" class="button secondary" data-action="stop">停止生成</button>' : ""}</div></form><p class="error" id="sendError" role="alert">${esc(ui.error)}</p>${ui.error ? '<button class="text-button" data-action="retry">重新发送</button>' : ""}<div class="composer-caption"><span>发送后交给服务及模型处理；对话与压缩照片保存到你的案例；照片定位信息会移除</span><span>Shift + Enter 换行</span></div></div>`;
   }
   function home() {
     const last = S.records().find((r) => !r.archived);
@@ -63,12 +64,18 @@
   function agentTraceHTML(m) {
     const vision = m.vision || [],
       tools = m.toolResults || [];
-    if (!vision.length && !tools.length && !m.review && !m.memoryFacts?.length)
+    if (
+      !vision.length &&
+      !tools.length &&
+      !m.review &&
+      !m.memoryFacts?.length &&
+      !m.regionalContext?.selected
+    )
       return "";
     const reviewText = m.review
       ? `<div class="knowledge-quote"><strong>回答自检 · ${esc({ supported: "已检查", revised: "已调整回答", insufficient: "证据不足，保留判断", unavailable: "未完成，已撤回未核实结论" }[m.review.status] || "状态未知")}</strong><p>由同一文字模型检查时间、图片与建议的一致性，不代表农技审校或确诊。</p></div>`
       : "";
-    return `<details class="explanation agent-evidence"><summary>本次查看与查询依据</summary>${reviewText}${(m.memoryFacts || []).map((f) => `<div class="knowledge-quote"><strong>已确认长期资料 · ${esc(f.label)}</strong><p>${esc(f.content)}</p><small>用户确认，不代表农技核验；可在长期记忆页面更正或删除。</small></div>`).join("")}${vision.map((v) => `<div class="knowledge-quote"><strong>图片理解 · ${v.status === "ok" ? "已返回观察" : "暂不可用"}</strong><p>${esc(v.content || "这张照片未取得可用识别结果。")}</p></div>`).join("")}${tools
+    return `<details class="explanation agent-evidence"><summary>本次查看与查询依据</summary>${window.RegionalChat?.evidence(m.regionalContext) || ""}${reviewText}${(m.memoryFacts || []).map((f) => `<div class="knowledge-quote"><strong>已确认长期资料 · ${esc(f.label)}</strong><p>${esc(f.content)}</p><small>用户确认，不代表农技核验；可在长期记忆页面更正或删除。</small></div>`).join("")}${vision.map((v) => `<div class="knowledge-quote"><strong>图片理解 · ${v.status === "ok" ? "已返回观察" : "暂不可用"}</strong><p>${esc(v.content || "这张照片未取得可用识别结果。")}</p></div>`).join("")}${tools
       .map((t) => {
         const r = t.result || {};
         const detail =
@@ -390,6 +397,7 @@
         ui.record,
         {
           text,
+          regionSubscriptionId: ui.regionId,
           photo: savedPhoto,
           file: ui.photo,
           onProgress: (message) => {
@@ -404,6 +412,7 @@
       );
       S.save(next);
       ui.record = next;
+      ui.regionId = next.regionSubscriptionId || "";
       ui.draft = "";
       clearPhoto();
       window.history.replaceState(
@@ -686,6 +695,12 @@
   });
   window.addEventListener("pagehide", () => {
     if (ui.photoUrl) URL.revokeObjectURL(ui.photoUrl);
+  });
+  root.addEventListener("change", (e) => {
+    if (e.target.id === "chatRegion") ui.regionId = e.target.value;
+  });
+  window.RegionalChat?.ready.then(() => {
+    if (!ui.busy && !ui.photoLoading) render();
   });
   render();
   if (!isHistory && !requested && params.get("intent") === "medicine")

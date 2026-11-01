@@ -3,7 +3,7 @@
 (() => {
   "use strict";
   const S = window.FarmerStore;
-  const CLIENT_VERSION = "2026.11.01.casework";
+  const CLIENT_VERSION = "2026.11.01.regional";
   const STREAM_PROTOCOL = "zhimai-chat-sse-v2";
   let lastTransport = null;
   const toolNames = {
@@ -154,6 +154,7 @@
     let started = false;
     const t = previous ? structuredClone(previous) : create();
     t.memoryContext = [];
+    t.regionalContext = null;
     const text = String(input.text || "").trim();
     const controller = new AbortController();
     let reader = null;
@@ -166,6 +167,10 @@
     const timer = setTimeout(abort, 180000);
     const form = new FormData();
     form.set("message", text);
+    form.set(
+      "region_subscription_id",
+      input.regionSubscriptionId ?? previous?.regionSubscriptionId ?? "",
+    );
     form.set("case_id", t.id);
     const memoryTurnId = S.id();
     form.set("turn_id", memoryTurnId);
@@ -231,6 +236,11 @@
           transport.server_version = event.server_version;
           transport.stream_protocol = event.stream_protocol;
           transport.request_id = event.request_id;
+        }
+        if (event.type === "regional_context") {
+          t.regionalContext = event;
+          t.regionSubscriptionId =
+            event.status === "disabled" ? "none" : event.selected?.id || "";
         }
         if (event.type === "memory_context")
           t.memoryContext = event.facts || [];
@@ -330,6 +340,7 @@
         type: "agent",
         text: answer.trim(),
         memoryFacts: t.memoryContext,
+        regionalContext: t.regionalContext,
         toolCalls,
         toolResults,
         vision,

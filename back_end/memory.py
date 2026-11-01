@@ -102,12 +102,12 @@ def fact_context(who, case_id=None):
     return items[:20]
 
 
-def save_turn(who,case_id,turn_id,message,answer,vision,tool_results,has_image,photo_id="",image_bytes=None,assessment=None):
+def save_turn(who,case_id,turn_id,message,answer,vision,tool_results,has_image,photo_id="",image_bytes=None,assessment=None,regional_context=None):
     identifier(case_id);identifier(turn_id)
     if image_bytes and not photo_id:photo_id=secrets.token_hex(16)
     body={'user':{'id':turn_id+'-u','role':'user','text':message or '帮我看看这张照片','source_type':'user_reported','had_image':bool(has_image), 'photoId':photo_id if has_image else ''},
           'assistant':{'id':turn_id+'-a','role':'assistant','type':'agent','text':answer,'source_type':'model_inference',
-                       'vision':vision,'toolResults':tool_results,'notice':'模型判断未确诊，不自动写入已确认事实'}}
+                       'vision':vision,'toolResults':tool_results,'regionalContext':regional_context,'notice':'模型判断未确诊，不自动写入已确认事实'}}
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
         guard_deleted(c,who,case_id)
@@ -124,7 +124,7 @@ def save_turn(who,case_id,turn_id,message,answer,vision,tool_results,has_image,p
             c.execute('UPDATE memory_cases SET updated=?,archived=0 WHERE id=?',(personal.now().isoformat(),case_id))
             import casework
             casework.ensure(c)
-            casework.add_turn(c,who,case_id,turn_id,message,vision,tool_results,image_bytes,photo_id,assessment)
+            casework.add_turn(c,who,case_id,turn_id,message,vision,tool_results,image_bytes,photo_id,assessment,regional_context)
 
 
 class Fact(BaseModel):

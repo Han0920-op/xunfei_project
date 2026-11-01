@@ -23,6 +23,7 @@ import personal
 import memory
 import casework
 import agri_sources
+import regional_context  # registers chat-context before the router is included
 
 
 def _ensure_case_columns():

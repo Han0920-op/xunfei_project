@@ -135,8 +135,11 @@ def add_turn(
     image_bytes=None,
     photo_id="",
     assessment=None,
+    regional_context=None,
 ):
     state = read_state(c, who, case_id)
+    if regional_context is not None:
+        state["reference_region"] = regional_context
     if state["status"] == "closed":
         state["status"] = "collecting"
     state["reported_symptoms"] = (
@@ -632,6 +635,7 @@ def build_report(who, case_id):
         "title": case["title"],
         "created_at": personal.now().isoformat(),
         "status": state["status"],
+        "reference_region": state.get("reference_region"),
         "user_confirmed_facts": case["facts"],
         "reported_symptoms": state["reported_symptoms"],
         "possible_causes": (state["assessment"] or {}).get("candidate_causes", []),
@@ -720,6 +724,7 @@ def print_report(case_id: str, report_id: str, request: Request):
     report = json.loads(row["body"])
     escape = html.escape
     sections = [
+        ("地区订阅参考（不代表照片所在地）", report.get("reference_region")),
         ("已确认事实", report["user_confirmed_facts"]),
         ("用户症状描述", report["reported_symptoms"]),
         ("候选原因（模型推测）", report["possible_causes"]),

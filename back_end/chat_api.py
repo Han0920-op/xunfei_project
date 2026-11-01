@@ -97,7 +97,7 @@ async def stream_check():
 @router.post("/chat")
 async def chat(request: Request, message: str = Form(""), history: str = Form("[]"), image: UploadFile | None = File(None),
                protocol: str | None = Header(None, alias="X-Zhimai-Stream-Protocol"),
-               case_id: str = Form(""), turn_id: str = Form(""), photo_id: str = Form("")):
+               case_id: str = Form(""), turn_id: str = Form(""), photo_id: str = Form(""), region_subscription_id: str = Form("")):
     if protocol != STREAM_PROTOCOL:
         raise HTTPException(409, "页面版本较旧或前后端版本不一致，请拉取最新代码、重启后端，再按 Ctrl+F5 强制刷新。输入和照片仍保留。")
     if len(message) > 4000 or len(history) > 250_000:
@@ -146,6 +146,10 @@ async def chat(request: Request, message: str = Form(""), history: str = Form("[
                 past=('【此前该轮图片的初步观察，非本轮新识别】'+observations+'\n') if observations else ''
                 messages.extend([HistoryMessage(role='user',content=turn['user']['text'][:6000]),
                     HistoryMessage(role='assistant',content=past+'【此前回答】（模型历史判断，未经确认）'+turn['assistant']['text'][:4000])])
+    import regional_context
+    if region_subscription_id:memory.identifier(region_subscription_id)
+    regional=regional_context.context(actor,region_subscription_id)
+    regional_prompt=regional_context.prompt_context(regional)
     request_id = uuid.uuid4().hex[:12]
 
     def events():
@@ -158,6 +162,7 @@ async def chat(request: Request, message: str = Form(""), history: str = Form("[
             trace.owner = None
         trace.case_id=case_id or None
         trace.memory_facts=confirmed
+        trace.regional_context=regional_prompt
         import casework
         try:trace.case_state=casework.snapshot(actor,case_id)['state'] if actor and case_id else None
         except HTTPException:trace.case_state=None
@@ -180,13 +185,15 @@ async def chat(request: Request, message: str = Form(""), history: str = Form("[
         tool_results=[]
         if confirmed:
             yield "data: " + json.dumps({'type':'memory_context','facts':confirmed,'case_id':case_id},ensure_ascii=False) + "\n\n"
+        if actor:
+            yield 'data: '+json.dumps({'type':'regional_context',**regional_prompt},ensure_ascii=False)+'\n\n'
         for event in guarded_turn():
             if event['type']=='vision_result':vision.append(event)
             if event['type']=='tool_result':tool_results.append({'tool':event['tool'],'result':event['result']})
             if event['type']=='answer':saved_answer=event['content']
             if event['type']=='done' and actor and case_id and saved_answer:
                 try:
-                    memory.save_turn(actor,case_id,turn_id,message,saved_answer,vision,tool_results,bool(image_bytes),photo_id,image_bytes,getattr(trace,'case_assessment',None))
+                    memory.save_turn(actor,case_id,turn_id,message,saved_answer,vision,tool_results,bool(image_bytes),photo_id,image_bytes,getattr(trace,'case_assessment',None),regional_prompt)
                     yield 'data: '+json.dumps({'type':'memory_saved','case_id':case_id})+'\n\n'
                 except Exception as exc:
                     trace.log('memory.save_failed',exc=exc)
