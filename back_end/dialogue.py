@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 import config
 import llm
 import tools
-from pesticides import format_check_answer
+from pesticides import format_check_answer, NUMBER, number_info
 from vision import understand_image
 from answer_review import EVIDENCE_RULES
 from response_stream import stream_response, ResponseFormatError
@@ -72,6 +72,8 @@ def system_prompt(require_checks=False):
         "工具失败、不支持地点或过期就明确天气不可用，不虚构、不用模拟数据，不把预报当实况。"
         "天气只用于提醒关注，不据此断言病害发生或今天适合施药。没有小时降雨信息不能说未来几小时无雨。\n"
         "核药必须调用check_pesticide；完整登记号或防治对象缺失时补问。不得凭成分名和模型记忆确认登记。"
+        "登记号支持PD、WP、EX、LS；带完整数字部分的WP号码可以是完整登记证号，是卫生用登记号类型，不能因为不是PD就认定号码不完整。"
+        "农药库number字段是用户填写的登记号，registration_number是格式识别结果；已有完整号码时只问用途/场所或防治对象，不重复索要号码。库里选定的一瓶药需核对该瓶，不扩大为核对全部库存。"
         "当前仅有公告登记范围、未核实有效期；不生成具体用量、混配、安全间隔期或可以施药的许可。"
         "人员农药暴露应联系专业急救，不做农业诊断；其他作物不要套用小麦结论。\n"
         "用户问手里已有的药时，调用list_my_medicines读取，不把库存当作适用证明。用户要求普通闹钟、复查提醒时调用prepare_reminder，支持一次性或每日提醒，无需地点；时间或事项含糊只追问关键缺项，不能声称不支持普通闹钟。用户要求每天定时查天气时，调用prepare_weather_check生成确认草案；先确认地点、具体时间与事项，不擅自创建或声称提醒已开启。\n"
@@ -124,7 +126,7 @@ def confirms_number(message, history, number):
         return False
     previous = history[-1].get("content", "")
     question = f"请先对照包装确认：完整农药登记证号是 {number.upper()} 吗？"
-    return question in previous and set(re.findall(r"(?:PD|EX|LS)\d{6,12}", previous.upper())) == {number.upper()}
+    return question in previous and set(NUMBER.findall(previous.upper())) == {number.upper()}
 
 
 def _tool_result(name, args, seen, trace=None):
@@ -185,7 +187,9 @@ def _tool_result(name, args, seen, trace=None):
             if not who:
                 return {'status':'unavailable','message':'请刷新页面连接个人资料后重试。'}
             if name == 'list_my_medicines':
-                return {'status':'ok','medicines':personal.listing(who,'medicines'),'note':'用户填写资料，不等于登记核验；需要调用check_pesticide核对。'}
+                medicines=[{**m,**number_info(m.get('number',''))} for m in personal.listing(who,'medicines')]
+                if trace is not None:trace.inventory_registration_numbers={m['registration_number'] for m in medicines if m['number_status']=='recognized_format'}
+                return {'status':'ok','medicines':medicines,'note':'number字段为用户已填写的登记号；recognized_format表示格式完整，不得再次要求补全同一号码。WP为卫生用登记类型。用户填写不等于官方核验，需调用check_pesticide；缺少用途或对象只问缺项。'}
             try:
                 item = personal.Entry(name=args.get('name','每日天气检查'),
                     task_type='reminder' if name=='prepare_reminder' else 'weather',
@@ -297,16 +301,32 @@ def run_turn(message, history, image_bytes=None, *, metrics=None, trace=None):
                     # Public trace is tool activity, not the model's internal reasoning.
                     yield {"type": "tool_call", "tool": name if name in ALLOWED_TOOLS else "unavailable", "args": args if isinstance(args, dict) else {}}
                     number = args.get("registration_number", "") if isinstance(args, dict) else ""
+                    number = number_info(number).get("registration_number") or number
                     user_text = "\n".join([message, *(m.get("content", "") for m in history if m.get("role") == "user")]).upper()
                     photo_number_unconfirmed = (
                         name == "check_pesticide" and isinstance(number, str)
-                        and re.fullmatch(r"(?:PD|EX|LS)\d{6,12}", number.upper())
+                        and NUMBER.fullmatch(number.upper())
                         and number.upper() not in user_text
+                        and number.upper() not in getattr(trace,'inventory_registration_numbers',set())
                         and not confirms_number(message, history, number)
                     )
                     result = ({"status": "needs_confirmation", "message": "登记号尚未由用户确认，不能把图片转录或模型猜测当成登记事实。"}
                               if photo_number_unconfirmed else _tool_result(name, args, seen, trace=trace))
                     yield {"type": "tool_result", "tool": name if name in ALLOWED_TOOLS else "unavailable", "result": result}
+                    medicines=result.get('medicines',[]) if name=='list_my_medicines' else []
+                    if (not image_bytes and not NUMBER.search(message.upper())
+                            and len(medicines)==1 and medicines[0].get('registration_kind')=='sanitary'
+                            and any(word in message for word in ('核对','核药','能不能用','能用吗'))):
+                        # An inventory audit already supplies this user-entered number.
+                        # Give a scoped, deterministic result instead of letting the
+                        # model rename a complete WP code as an incomplete number.
+                        args={'registration_number':medicines[0]['registration_number'],'crop':'用途未确认','target':'还没确定'}
+                        yield {'type':'tool_call','tool':'check_pesticide','args':args}
+                        checked=_tool_result('check_pesticide',args,seen,trace=trace)
+                        yield {'type':'tool_result','tool':'check_pesticide','result':checked}
+                        yield {'type':'answer','content':format_check_answer(json.dumps(checked,ensure_ascii=False))}
+                        yield {'type':'done'}
+                        return
                     if name=='record_case_assessment' and result.get('assessment',{}).get('review_required'):
                         yield {'type':'answer','content':'目前证据仍不足或需要进一步核实，先停止反复追问。请保留异常部位和全株照片、记录近期变化及实际措施，联系当地农技人员现场复核；暂不据此增加药剂或用量。'}
                         yield {'type':'done'}

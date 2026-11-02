@@ -28,7 +28,7 @@
         });
         if (response.status === 422)
           throw new Error(
-            "请核对登记号格式，只填写包装上的完整 PD、EX 或 LS 编号；点击下方“重新核对登记号”可修改。",
+            "请核对登记号格式，只填写包装上的完整 PD、WP、EX 或 LS 编号；点击下方“重新核对登记号”可修改。",
           );
         if (!response.ok)
           throw new Error(

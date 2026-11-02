@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 Text = Annotated[str, Field(min_length=1, max_length=500, strict=True)]
-NUMBER = re.compile(r"(?:PD|EX|LS)\d{6,12}", re.ASCII)
+NUMBER = re.compile(r"(?:PD|WP|EX|LS)\d{6,12}", re.ASCII)
 SOURCE_HOSTS = {"chinapesticide.org.cn", "www.chinapesticide.org.cn", "icama.org.cn", "www.icama.org.cn", "www.moa.gov.cn"}
 MAX_AGE_DAYS = 30
 CHINA_TIME = ZoneInfo("Asia/Shanghai")
@@ -25,8 +25,31 @@ DEFAULT_CATALOG = Path(__file__).parent / "data" / "pesticides" / "official-anno
 def normalize_number(value: str) -> str:
     number = value.strip().upper()
     if not NUMBER.fullmatch(number):
-        raise ValueError("请只输入完整登记证号，例如包装上的 PD 开头号码；目前支持 PD、EX、LS 编号。")
+        raise ValueError("请只输入完整登记证号，例如包装上的 PD 开头号码；目前支持 PD、WP、EX、LS 编号。")
     return number
+
+
+def number_info(value):
+    """Recognizing syntax never certifies registration, expiry, or label scope."""
+    if not isinstance(value,str) or not value.strip():
+        return {'number_status':'missing','registration_number':'','registration_kind':'unknown'}
+    try:number=normalize_number(value)
+    except ValueError:return {'number_status':'unrecognized_format','registration_number':'','registration_kind':'unknown'}
+    sanitary=number.startswith('WP')
+    return {'number_status':'recognized_format','registration_number':number,
+        'registration_kind':'sanitary' if sanitary else 'other_pesticide',
+        'number_notice':'登记号格式完整；尚未验证官方登记状态。'+('WP为卫生用农药登记号类型，不能当作小麦田间用药依据。' if sanitary else '')}
+
+
+def unlisted_summary(result):
+    number=result['registration_number']
+    result.update(status='not_in_local_catalog',heading=f'已识别完整登记号 {number}，本地资料尚未收录',
+        summary='登记号格式已识别；本地未收录不代表官方没有登记。当前工具查询本地资料，并未实时连接官网登记数据库。')
+    if number.startswith('WP'):
+        result['summary']+='WP为卫生用农药登记号类型，实际使用场所和防治对象须以该产品登记资料及有效标签为准，不能作为小麦田间用药依据。'
+        result['reason_codes'].extend(['sanitary_registration_scope','registration_not_in_local_catalog'])
+        result['next_steps']=['请说明要核对的使用场所与防治对象，例如是卫生用途还是小麦用途；无需重复填写这个完整号码。','请核对官方当前登记状态和完整标签；本地未收录时不推荐剂量、混配或田间施用。']
+    return result
 
 
 class StrictModel(BaseModel):
@@ -36,7 +59,7 @@ class StrictModel(BaseModel):
 class CheckRequest(StrictModel):
     registration_number: Annotated[str, Field(max_length=40)]
     crop: Text = "小麦"
-    target: Text
+    target: Text = "还没确定"
 
     @field_validator("registration_number")
     @classmethod
@@ -151,7 +174,8 @@ def check_registration(request: CheckRequest, *, path=None, today=None) -> dict:
         "status": "source_unavailable",
         "heading": "登记资料暂不可用，不能判断是否适用",
         "summary": "尚未配置可读取的人工核验资料。请核对官方登记信息及有效标签。",
-        "checks": [],
+        "checks": [["登记号（格式已识别，登记状态未核验）",request.registration_number]],
+        **number_info(request.registration_number),
         "source": None,
         "scope_match": "unknown",
         "use_decision": "hold_for_verification",
@@ -161,6 +185,8 @@ def check_registration(request: CheckRequest, *, path=None, today=None) -> dict:
         "label_reference": None,
         "explanation": "本功能核对有来源的登记资料，并非官方实时查询，不鉴别真伪，也不确认病因或是否需要施药。公告范围相符不等于现在可以用。登记状态、有效期、完整标签及田间条件未全部核实时，不生成剂量、混配或安全间隔期建议。",
     }
+    if request.registration_number.startswith('WP'):
+        result['explanation']+=' WP属于卫生用登记号类型，登记号格式识别不代表已核验本品登记或可以用于小麦。'
     # An explicit bad override must fail closed, never silently fall back.
     catalog_path = path if path is not None else (os.getenv("PESTICIDE_CATALOG_PATH", "").strip() or str(DEFAULT_CATALOG))
     if not catalog_path:
@@ -172,8 +198,7 @@ def check_registration(request: CheckRequest, *, path=None, today=None) -> dict:
         return result
     record = next((r for r in catalog.records if r.registration_number == request.registration_number), None)
     if record is None:
-        result.update(status="not_in_local_catalog", heading="本地资料未收录这个号码", summary="这不代表官方没有登记。请到官方查询平台核实，或提供完整标签请农技人员核对。")
-        return result
+        return unlisted_summary(result)
     historical = record.source.evidence_kind == "approval_announcement"
     result["mode"] = "official_announcement_snapshot" if historical else "reviewed_local_snapshot"
     result["source"] = record.source.model_dump(mode="json")
@@ -216,6 +241,9 @@ def check_registration(request: CheckRequest, *, path=None, today=None) -> dict:
         result.update(status="mismatch", heading="资料显示登记撤销或已过有效期", summary="不要依据该资料使用，请核对最新官方登记状态。")
         result.update(use_decision="do_not_apply_from_this_record")
         result["reason_codes"].append("revoked_or_expired_in_record")
+    elif request.registration_number.startswith('WP') and request.crop in ('用途未确认','卫生用场所待确认'):
+        result.update(status='needs_review',heading='卫生用登记号已识别，请确认实际使用场所',summary='已读取本地资料；请说明要使用的场所和防治对象，不能把卫生用药当作小麦用药。')
+        result['reason_codes'].append('use_site_unknown')
     elif not crop_match:
         result.update(status="mismatch", heading="资料中的登记作物不匹配", summary="该资料没有列出当前作物，不能据此用于当前情况。")
         result.update(use_decision="do_not_apply_from_this_record")
@@ -259,10 +287,10 @@ def format_check_answer(result_json: str) -> str:
         return "核对服务没有返回完整结果，请重新核实登记信息；暂不能据此施药。"
 
 
-def check_pesticide(registration_number: str, target: str, crop: str = "小麦") -> str:
+def check_pesticide(registration_number: str, target: str = "还没确定", crop: str = "小麦") -> str:
     """Agent tool wrapper: validation errors are facts too, never fabricated matches."""
     try:
-        request = CheckRequest(registration_number=registration_number, target=target, crop=crop)
+        request = CheckRequest(registration_number=registration_number, target=(target.strip() or "还没确定") if isinstance(target,str) else target, crop=crop)
     except ValueError:
         return json.dumps({"status": "invalid_input", "summary": "登记号或查询字段不完整，请用户核对包装后补充。"}, ensure_ascii=False)
     return json.dumps(check_registration(request), ensure_ascii=False)

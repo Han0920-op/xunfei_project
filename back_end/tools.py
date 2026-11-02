@@ -107,11 +107,11 @@ register(Tool(
     parameters={
         "type": "object",
         "properties": {
-            "registration_number": {"type": "string", "description": "用户确认的完整登记证号"},
+            "registration_number": {"type": "string", "description": "用户确认的完整登记证号，支持PD、WP、EX、LS；WP是卫生用登记类型，不能当作小麦登记"},
             "crop": {"type": "string", "description": "作物，如小麦"},
             "target": {"type": "string", "description": "防治对象，未知时填写还没确定"},
         },
-        "required": ["registration_number", "target"],
+        "required": ["registration_number"],
     },
     func=check_pesticide,
 ))
