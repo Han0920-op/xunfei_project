@@ -1,0 +1,7 @@
+{
+  "checked_at": "2026-11-02T11:52:23.108479+08:00",
+  "source_url": "https://weather.cma.cn/api/map/alarm",
+  "state": "unavailable",
+  "network_observation": "当前运行环境的网络允许列表未包含weather.cma.cn，实际请求无法连接；没有解析或取得真实预警记录。",
+  "notice": "仅记录连通性结果。演示情景不是实况，数据格式适配尚未经过真实来源联调。"
+}

@@ -23,6 +23,7 @@ import personal
 import memory
 import casework
 import agri_sources
+import weather_alerts
 import regional_context  # registers chat-context before the router is included
 
 
@@ -83,11 +84,13 @@ async def lifespan(app: FastAPI):
     _backfill_conversation_ids()
     scheduler_stop = personal.start()
     sources_stop = agri_sources.start()
+    warnings_stop = weather_alerts.start()
     try:
         yield
     finally:
         scheduler_stop.set()
         sources_stop.set()
+        warnings_stop.set()
 
 
 app = FastAPI(title="智麦 农业智能体后端", version=APP_VERSION, lifespan=lifespan)
@@ -96,6 +99,7 @@ app.include_router(personal.router)
 app.include_router(memory.router)
 app.include_router(casework.router)
 app.include_router(agri_sources.router)
+app.include_router(weather_alerts.router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

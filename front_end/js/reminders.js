@@ -49,15 +49,27 @@
     p.id = "reminderAlertMessage";
     p.textContent = item.message;
     const label = document.createElement("small");
-    label.textContent = test
-      ? "测试提醒 · 不会创建真实任务"
-      : "智麦提醒 · 已到约定时间";
+    label.textContent = item.is_demo
+      ? "天气情景演示 · 非真实预警"
+      : item.task_type === "weather_alert"
+        ? "官方天气预警 · 请核对发布时间和范围"
+        : test
+          ? "测试提醒 · 不会创建真实任务"
+          : "智麦提醒 · 已到约定时间";
     const actions = document.createElement("div");
     const link = document.createElement("a");
-    link.href = item.case_id
-      ? "memory.html?case=" + encodeURIComponent(item.case_id)
-      : "personal.html?tab=notifications";
-    link.textContent = item.case_id ? "回到案例补图与复查" : "查看提醒";
+    link.href =
+      item.task_type === "weather_alert"
+        ? "weather-alerts.html"
+        : item.case_id
+          ? "memory.html?case=" + encodeURIComponent(item.case_id)
+          : "personal.html?tab=notifications";
+    link.textContent =
+      item.task_type === "weather_alert"
+        ? "查看防护建议"
+        : item.case_id
+          ? "回到案例补图与复查"
+          : "查看提醒";
     link.className = "button secondary";
     const ack = document.createElement("button");
     ack.className = "button primary";
@@ -79,7 +91,19 @@
       }
     };
     actions.append(link, ack);
-    box.append(label, title, p, actions);
+    box.append(label, title, p);
+    if (item.task_type === "weather_alert") {
+      const advice = document.createElement("ol");
+      for (const text of item.advice || []) {
+        const li = document.createElement("li");
+        li.textContent = text;
+        advice.append(li);
+      }
+      const note = document.createElement("small");
+      note.textContent = item.notice || "";
+      box.append(advice, note);
+    }
+    box.append(actions);
     document.body.append(box);
   }
   async function poll() {
@@ -88,15 +112,35 @@
     try {
       await window.PersonalReady;
       rows = await api("notifications");
-      const unread = rows.filter((x) => !x.read);
-      if (current?.id && !unread.some((x) => x.id === current.id)) {
+      const unread = rows.filter(
+        (x) =>
+          !x.read &&
+          !x.superseded &&
+          !(
+            x.task_type === "weather_alert" &&
+            x.warning?.status === "active" &&
+            Date.parse(x.warning.expires_at) <= Date.now()
+          ),
+      );
+      if (
+        current?.id &&
+        !current.is_demo &&
+        !unread.some((x) => x.id === current.id)
+      ) {
         document.getElementById("reminderAlert")?.remove();
         current = null;
       }
       badge(unread.length);
       for (const item of unread) {
         if (
-          item.task_type === "regional" &&
+          item.task_type === "weather_alert" &&
+          item.warning?.status === "active" &&
+          Date.parse(item.warning.expires_at) <= Date.now()
+        )
+          continue;
+        if (
+          ["regional", "weather_alert"].includes(item.task_type) &&
+          !item.urgent &&
           item.quiet_start &&
           item.quiet_end
         ) {
@@ -116,6 +160,7 @@
         if (!delivered.has(item.id)) {
           delivered.add(item.id);
           if (
+            item.task_type !== "weather_alert" &&
             "Notification" in window &&
             Notification.permission === "granted"
           ) {
@@ -152,6 +197,12 @@
   });
   window.ZhimaiReminders = {
     refresh: poll,
+    preview: (item) => {
+      if (!item?.is_demo) return;
+      document.getElementById("reminderAlert")?.remove();
+      current = null;
+      show(item, true);
+    },
     test: () =>
       show(
         {

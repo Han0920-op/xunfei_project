@@ -2,7 +2,7 @@
 
 ## 数据与启动
 
-延续现有启动方法，不覆盖.env。安装 `back_end/requirements.txt` 后重启后端并强制刷新浏览器；发布版本 `2026.11.01.regional`，SSE协议保持兼容。
+延续现有启动方法，不覆盖.env。安装 `back_end/requirements.txt` 后重启后端并强制刷新浏览器；发布版本 `2026.11.02.weather`，SSE协议保持兼容。
 
 所有新增个人/案例资料在被Git忽略的 `back_end/data/local/personal.db`。新增表：case_states、case_events、case_photos、case_reports、official_documents、region_subscriptions、risk_deliveries、source_status。`CREATE TABLE IF NOT EXISTS` 迁移幂等，不删除旧记录。备份应包含整个数据库，备份本身也应限制访问。
 
@@ -80,3 +80,5 @@ python -m unittest discover -s front_end/tests -p '*smoke.py' -q
 当前用户文字明确其他地点时优先该地点；仅省份不推算城市天气。天气仍须调用真实天气工具，指导资料仍须查询检索工具。订阅不是照片所在地、现场发病证据或施药许可；候选地区未选择时不任取第一条。每轮通过regional_context事件展示实际背景，随案例和报告保留，来源为user_subscription_reference，不自动写为已确认现场事实。
 
 此次没有接入新的气象灾害预警源，也没有增加关闭网页后的推送渠道。真实模型对地区上下文的遵循仍需在可用服务配置下验收。
+
+2026-11-02新增网页天气情景演示及官方预警校验链路，具体已实现内容与未联调边界见 [天气预警说明](weather-warnings.md)。

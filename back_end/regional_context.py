@@ -70,7 +70,13 @@ def context(who, selected_id=""):
                 bulletins.append(agri_sources.public(d))
                 if len(bulletins) >= 3:
                     break
+    weather_status={'state':'not_selected'}
+    weather_warnings=[]
+    if selected:
+        import weather_alerts
+        data=weather_alerts.active_for(who,selected['id']);weather_status=data['source'];weather_warnings=data['warnings'][:3]
     return {
+        "weather_source":weather_status,"weather_warnings":weather_warnings,
         "status": status,
         "selected": selected,
         "options": items,
@@ -105,8 +111,10 @@ def prompt_context(data):
             }
             for b in data["bulletins"]
         ],
+        "weather_source_state": data.get('weather_source',{}).get('state','not_selected'),
+        "weather_warnings":[{k:w[k] for k in ('title','publisher','hazard','level','issued_at','expires_at','area_codes','source_url','advice','notice')} for w in data.get('weather_warnings',[])],
         "notice": NOTICE,
-        "limitations": "没有有效情报不表示没有风险；订阅病虫害不表示现场发生。天气必须重新调用真实工具；省级地区不能推算城市天气；未接入专门气象灾害预警。",
+        "limitations": "没有有效情报不表示没有风险；订阅病虫害不表示现场发生。天气必须重新调用真实工具；省级地区不能推算城市天气；气象灾害预警仅以weather_warnings里的真实来源为准，来源不可用不表示没有预警；演示情景不能当作实况。",
     }
 
 

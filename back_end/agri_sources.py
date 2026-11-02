@@ -389,8 +389,27 @@ class Subscription(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     province: str = Field(min_length=2, max_length=10)
     city: str = Field(default="", max_length=30)
-    pests: list[str] = Field(min_length=1, max_length=10)
+    pests: list[str] = Field(default_factory=list, max_length=10)
     enabled: bool = True
+    weather_enabled: bool = False
+    weather_types: list[str] = Field(
+        default_factory=lambda: [
+            "暴雨",
+            "大风",
+            "寒潮",
+            "霜冻",
+            "暴雪",
+            "高温",
+            "冰雹",
+            "雷电",
+            "台风",
+            "沙尘暴",
+        ],
+        max_length=10,
+    )
+    weather_min_level: str = "蓝色"
+    weather_adcode: str = Field(default="", pattern=r"^(?:[0-9]{6})?$")
+    weather_urgent: bool = False
     max_daily: int = Field(default=1, ge=1, le=3)
     quiet_start: str = Field(default="22:00", pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
     quiet_end: str = Field(default="07:00", pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
@@ -438,6 +457,31 @@ def save_subscription(identifier: str, item: Subscription, request: Request):
     memory.identifier(identifier)
     if item.province not in PROVINCES or any(p not in PESTS for p in item.pests):
         raise HTTPException(400, "请选择支持的省份和病虫害")
+    import weather_alerts, weather
+
+    if not item.pests and not item.weather_enabled:
+        raise HTTPException(400, "请至少选择病虫害订阅或开启天气预警")
+    if (
+        any(t not in weather_alerts.TYPES for t in item.weather_types)
+        or item.weather_min_level not in weather_alerts.LEVELS
+    ):
+        raise HTTPException(400, "请选择支持的天气类型和级别")
+    item.weather_types = list(dict.fromkeys(item.weather_types))
+    if item.weather_enabled:
+        if not item.weather_types:
+            raise HTTPException(400, "请至少选择一种天气类型")
+        item.weather_adcode = (
+            item.weather_adcode or weather._location_code(item.city) or ""
+        )
+        if item.city and not item.weather_adcode:
+            raise HTTPException(
+                400, "该城市暂未自动识别，请填写用户确认的六位市县行政区编码"
+            )
+        if (
+            item.weather_adcode
+            and item.weather_adcode[:2] != weather_alerts.PROVINCE_CODES[item.province]
+        ):
+            raise HTTPException(400, "行政区编码与所选省份不一致，请重新确认")
     item.pests = list(dict.fromkeys(item.pests))
     with db() as c:
         ensure(c)
