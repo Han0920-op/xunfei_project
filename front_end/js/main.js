@@ -161,7 +161,15 @@
     if (m.role === "user")
       return `<article class="message user"><div class="user-bubble">${p ? photoHTML(p) : ""}${m.text ? `<p>${esc(m.text)}</p>` : ""}</div><span class="user-avatar">我</span></article>`;
     let content = "";
-    if (m.type === "agent")
+    if (
+      m.type === "agent" &&
+      /^\s*<(?:tool_call|tool_calls|function_call|function=|think|analysis)/i.test(
+        m.text || "",
+      )
+    )
+      content =
+        '<div class="agent-answer">这条旧回复包含未执行的工具调用，没有生成有效的确认卡。请重新发送，并确认提醒的日期、时间与事项。</div>';
+    else if (m.type === "agent")
       content = `<div class="agent-answer">${esc(m.text).replaceAll("\n", "<br>")}</div>${window.ReminderCards.markup(ui.record.id, m)}${window.MemoryUI?.cards(ui.record.id, m) || ""}${agentTraceHTML(m)}${last ? `<div class="answer-actions">${actionButton("photo", "补充照片", "camera")}${actionButton("summary", "下载问题摘要", "download")}</div>` : ""}`;
     else if (m.type === "local-note") content = `<p>${esc(m.text)}</p>`;
     else if (m.type === "question")

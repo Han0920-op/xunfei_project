@@ -23,7 +23,10 @@ TYPES = {'Exception', 'RuntimeError', 'ValueError', 'TypeError', 'KeyError', 'In
          'WebSocketTimeoutException', 'WebSocketConnectionClosedException', 'WebSocketBadStatusException',
          'ZoneInfoNotFoundError', 'FileNotFoundError', 'PermissionError'}
 # Exact messages from our own raise sites; all other strings remain private.
-REASONS = {'missing evidence header': 'missing_evidence_header',
+REASONS = {'invalid tool envelope':'invalid_tool_envelope',
+           'unsupported tool envelope':'unsupported_tool_envelope',
+           'incomplete tool envelope':'incomplete_tool_envelope',
+           'missing evidence header': 'missing_evidence_header',
            'unexpected fenced response': 'fenced_response',
            'evidence checks incomplete': 'evidence_checks_incomplete',
            'duplicate response field': 'duplicate_response_field',

@@ -102,6 +102,33 @@ def string_prefix(text, start):
     return json.loads('"' + text[start:pos] + '"')
 
 
+TOOL_OPEN = '<tool_call>'
+TOOL_CLOSE = '</tool_call>'
+PRIVATE_STARTS = (TOOL_OPEN, '<tool_calls>', '<function_call>', '<function=', TOOL_CLOSE, '<think>', '<analysis>')
+
+
+def is_control_envelope(text):
+    return isinstance(text,str) and text.lstrip().lower().startswith(('<tool','</tool','<function','<think','<analysis'))
+
+
+def wrapped_tool(text):
+    """Accept one complete canonical tool object, never recover arbitrary text.
+
+    Some model endpoints emit an opening marker without a closing marker. A
+    complete JSON object and normal upstream completion are still mandatory.
+    """
+    payload=text[len(TOOL_OPEN):].lstrip()
+    data,end=DECODER.raw_decode(payload)
+    tail=payload[end:].strip()
+    if tail.lower() not in ('',TOOL_CLOSE):raise ValueError('invalid tool envelope')
+    if (not isinstance(data,dict) or data.get('action')!='tool'
+            or set(data)-{'action','tool','args'} or not isinstance(data.get('tool'),str)
+            or not data['tool'] or not isinstance(data.get('args',{}),dict)):
+        raise ValueError('invalid tool envelope')
+    data.setdefault('args',{})
+    return data
+
+
 def stream_response(chunks, *, require_checks=False):
     buffer, mode, emitted, prefix = "", None, "", None
     header = None
@@ -116,9 +143,17 @@ def stream_response(chunks, *, require_checks=False):
             if not text:
                 continue
             if mode is None:
-                mode = "json" if text[0] == "{" else "text"
+                # Wait when a private marker is split across network chunks.
+                if any(marker.startswith(text.lower()) for marker in PRIVATE_STARTS):
+                    continue
+                if text.lower().startswith(TOOL_OPEN):mode='wrapped_tool'
+                elif text.lower().startswith(('<tool','</tool','<function','<think','<analysis')):
+                    raise ValueError('unsupported tool envelope')
+                else:mode = "json" if text[0] == "{" else "text"
                 if require_checks and mode == "text":
                     raise ValueError("missing evidence header")
+            if mode == 'wrapped_tool':
+                continue  # Buffer private parameters until the entire object validates.
             if mode == "text":
                 # Plain responses cannot expose markdown-fenced control JSON.
                 if text.startswith("`"):
@@ -140,6 +175,12 @@ def stream_response(chunks, *, require_checks=False):
             if delta:
                 emitted = value
                 yield {"type": "answer_delta", "content": delta}
+        if mode == 'wrapped_tool':
+            data=wrapped_tool(buffer.lstrip())
+            yield {'type':'model_result','data':data,'content':json.dumps(data,ensure_ascii=False)}
+            return
+        if mode is None and buffer.lstrip().startswith('<'):
+            raise ValueError('incomplete tool envelope')
         if mode == "json":
             data = json.loads(buffer, object_pairs_hook=unique_object)
             if not isinstance(data, dict):

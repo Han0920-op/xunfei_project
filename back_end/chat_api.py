@@ -20,6 +20,7 @@ import dialogue
 from runtime import APP_VERSION, STREAM_PROTOCOL
 from chat_errors import error_event
 from diagnostics import Trace
+from response_stream import is_control_envelope
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -144,8 +145,10 @@ async def chat(request: Request, message: str = Form(""), history: str = Form("[
             for turn in old_case['turns'][-15:]:
                 observations='；'.join(v.get('content','')[:700] for v in turn['assistant'].get('vision',[]) if v.get('status')=='ok')
                 past=('【此前该轮图片的初步观察，非本轮新识别】'+observations+'\n') if observations else ''
+                prior_reply=turn['assistant']['text']
+                if is_control_envelope(prior_reply):prior_reply='此前回复是未执行的工具文本，不代表已创建提醒；请重新确认日期时间。'
                 messages.extend([HistoryMessage(role='user',content=turn['user']['text'][:6000]),
-                    HistoryMessage(role='assistant',content=past+'【此前回答】（模型历史判断，未经确认）'+turn['assistant']['text'][:4000])])
+                    HistoryMessage(role='assistant',content=past+'【此前回答】（模型历史判断，未经确认）'+prior_reply[:4000])])
     import regional_context
     if region_subscription_id:memory.identifier(region_subscription_id)
     regional=regional_context.context(actor,region_subscription_id)

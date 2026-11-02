@@ -3,7 +3,7 @@
 (() => {
   "use strict";
   const S = window.FarmerStore;
-  const CLIENT_VERSION = "2026.11.02.pesticide";
+  const CLIENT_VERSION = "2026.11.02.toolcall";
   const STREAM_PROTOCOL = "zhimai-chat-sse-v2";
   let lastTransport = null;
   const toolNames = {
@@ -118,7 +118,11 @@
         }
         notes.push(
           "【此前回答】（模型曾给出的回复，可能错误，不代表用户确认）" +
-            String(m.text || "").slice(0, 1200),
+            (/^\s*<(?:tool_call|tool_calls|function_call|function=|think|analysis)/i.test(
+              m.text || "",
+            )
+              ? "此前回复是未执行的工具文本，不代表已经创建提醒；请重新确认日期时间。"
+              : String(m.text || "").slice(0, 1200)),
         );
         return {
           role: "assistant",
