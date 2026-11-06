@@ -164,6 +164,7 @@ async def chat(request: Request, message: str = Form(""), history: str = Form("[
         except HTTPException:
             trace.owner = None
         trace.case_id=case_id or None
+        trace.turn_id=turn_id or request_id
         trace.memory_facts=confirmed
         trace.regional_context=regional_prompt
         import casework
@@ -196,8 +197,15 @@ async def chat(request: Request, message: str = Form(""), history: str = Form("[
             if event['type']=='answer':saved_answer=event['content']
             if event['type']=='done' and actor and case_id and saved_answer:
                 try:
-                    memory.save_turn(actor,case_id,turn_id,message,saved_answer,vision,tool_results,bool(image_bytes),photo_id,image_bytes,getattr(trace,'case_assessment',None),regional_prompt)
+                    memory.save_turn(actor,case_id,turn_id,message,saved_answer,vision,tool_results,bool(image_bytes),photo_id,image_bytes,getattr(trace,'case_assessment',None),regional_prompt,initial_title='新诊断')
                     yield 'data: '+json.dumps({'type':'memory_saved','case_id':case_id})+'\n\n'
+                    try:
+                        import case_titles
+                        title=case_titles.save_once(actor,case_id,getattr(trace,'generated_title',None),message,vision)
+                        yield 'data: '+json.dumps({'type':'case_title','case_id':case_id,'title':title},ensure_ascii=False)+'\n\n'
+                    except Exception:
+                        pass  # Title failure cannot fail an already saved chat.
+
                 except Exception as exc:
                     trace.log('memory.save_failed',exc=exc)
                     event=error_event('internal_error')

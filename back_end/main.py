@@ -24,6 +24,7 @@ import memory
 import casework
 import agri_sources
 import weather_alerts
+import execution_plans
 import regional_context  # registers chat-context before the router is included
 
 
@@ -97,6 +98,7 @@ app = FastAPI(title="智麦 农业智能体后端", version=APP_VERSION, lifespa
 app.include_router(farmer_agent_router)
 app.include_router(personal.router)
 app.include_router(memory.router)
+app.include_router(execution_plans.router)
 app.include_router(casework.router)
 app.include_router(agri_sources.router)
 app.include_router(weather_alerts.router)

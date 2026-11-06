@@ -50,22 +50,22 @@ class MemoryBrowserTests(unittest.TestCase):
  def test_old_case_selection_restores_history_and_recovery_works_on_new_browser(self):
   def model(messages,**kwargs):
    if '上次' in messages[-1]['content']:return iter([json.dumps({'action':'tool','tool':'search_user_cases','args':{'query':'黄叶'}})])
-   return iter(['先观察新叶及叶背，目前证据不足。'])
+   return iter([json.dumps({'action':'answer','title':'小麦黄叶症状排查','content':'先观察新叶及叶背，目前证据不足。'},ensure_ascii=False)])
   with patch.object(dialogue.llm,'chat_stream',side_effect=model):
    self.page.goto(self.base+'/index.html');self.send('麦苗黄叶，昨天才发现')
    expect(self.page.locator('.agent-answer')).to_be_visible();first_id=self.page.evaluate('FarmerStore.records()[0].id')
    self.page.goto(self.base+'/index.html');self.send('上次黄叶那件事')
    expect(self.page.get_by_role('link',name='是这次，继续这个案例',exact=True)).to_be_visible()
    self.page.get_by_role('link',name='是这次，继续这个案例',exact=True).click()
-   expect(self.page.locator('.thread-heading h1')).to_have_text('麦苗黄叶，昨天才发现')
+   expect(self.page.locator('.thread-heading h1')).to_have_text('小麦黄叶症状排查')
    self.assertIn(first_id,self.page.url)
   self.page.goto(self.base+'/memory.html');self.page.get_by_role('button',name='生成恢复码',exact=True).click();self.page.locator('#dialog').get_by_role('button',name='生成恢复码',exact=True).click()
   code=self.page.get_by_role('textbox',name='恢复码',exact=True).input_value()
   other=self.browser.new_context();p=other.new_page();p.on('pageerror',lambda e:self.errors.append(str(e)))
   p.goto(self.base+'/memory.html');p.get_by_role('button',name='用恢复码找回资料',exact=True).click();p.locator('[name=code]').fill(code);p.get_by_role('button',name='确认恢复',exact=True).click()
-  expect(p.get_by_role('heading',name='麦苗黄叶，昨天才发现',exact=True)).to_be_visible()
-  p.locator('.personal-card').filter(has=p.get_by_role('heading',name='麦苗黄叶，昨天才发现',exact=True)).get_by_role('link',name='确认这次，继续咨询',exact=True).click()
-  expect(p.locator('.thread-heading h1')).to_have_text('麦苗黄叶，昨天才发现')
+  expect(p.get_by_role('heading',name='小麦黄叶症状排查',exact=True)).to_be_visible()
+  p.locator('.personal-card').filter(has=p.get_by_role('heading',name='小麦黄叶症状排查',exact=True)).get_by_role('link',name='确认这次，继续咨询',exact=True).click()
+  expect(p.locator('.thread-heading h1')).to_have_text('小麦黄叶症状排查')
   other.close()
  def test_legacy_import_requires_click_and_preserves_local_record(self):
   self.page.goto(self.base+'/index.html')

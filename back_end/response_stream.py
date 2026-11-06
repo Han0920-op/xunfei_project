@@ -132,6 +132,7 @@ def wrapped_tool(text):
 def stream_response(chunks, *, require_checks=False):
     buffer, mode, emitted, prefix = "", None, "", None
     header = None
+    generated_title = None
     try:
         for chunk in chunks:
             if not isinstance(chunk, str):
@@ -165,6 +166,8 @@ def stream_response(chunks, *, require_checks=False):
                     if prefix is None:
                         continue
                     fields, _ = prefix
+                    fields = dict(fields)
+                    generated_title = fields.pop("title", None)
                     if require_checks or "checks" in fields:
                         header = AnswerHeader.model_validate(fields).ensure_supported()
                         yield {"type": "answer_review", "status": header.verdict, "issue_codes": header.issue_codes}
@@ -188,6 +191,7 @@ def stream_response(chunks, *, require_checks=False):
             if data.get("action") == "tool" and not emitted and prefix is None:
                 yield {"type": "model_result", "data": data, "content": buffer}
                 return
+            data.pop("title", None)
             final = data.pop("content", None)
             if not isinstance(final, str) or not final.strip() or final != emitted:
                 raise ValueError("incomplete answer")
@@ -200,7 +204,7 @@ def stream_response(chunks, *, require_checks=False):
             final = emitted
         if not final or not final.strip():
             raise ValueError("empty model response")
-        yield {"type": "model_result", "data": None, "content": final}
+        yield {"type": "model_result", "data": None, "content": final, "title": generated_title}
     except ValueError as exc:
         raise ResponseFormatError("invalid answer format or evidence checks") from exc
     finally:

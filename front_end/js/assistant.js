@@ -3,20 +3,24 @@
 (() => {
   "use strict";
   const S = window.FarmerStore;
-  const CLIENT_VERSION = "2026.11.02.toolcall";
+  const CLIENT_VERSION = "2026.11.06.delivery";
   const STREAM_PROTOCOL = "zhimai-chat-sse-v2";
   let lastTransport = null;
   const toolNames = {
+    search_web: "联网搜索",
+    save_execution_plan: "保存执行方案",
     get_weather: "查询天气",
     search_knowledge: "检索小麦资料",
     check_pesticide: "核对农药登记",
+    list_my_medicines: "读取我的农药库",
+    save_my_medicines: "记录手里的农药",
   };
   function create() {
     return {
       id: S.id(),
       kind: "agent",
       step: "chat",
-      title: "和智麦聊聊",
+      title: "新诊断",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       archived: false,
@@ -188,6 +192,8 @@
     const toolCalls = [],
       toolResults = [],
       vision = [];
+    const receivedCalls = new Set();
+    window.SearchUI?.reset();
     const progress = (message) => input.onProgress?.(message);
     try {
       if (window.PersonalReady) await window.PersonalReady;
@@ -241,6 +247,16 @@
           transport.stream_protocol = event.stream_protocol;
           transport.request_id = event.request_id;
         }
+        if (event.type === "case_title" && event.case_id === t.id) {
+          t.title = event.title;
+          t.aiTitle = true;
+        }
+        if (["tool_start", "tool_error", "tool_result"].includes(event.type)) {
+          const key = event.type + ":" + event.call_id;
+          if (event.call_id && receivedCalls.has(key)) return;
+          if (event.call_id) receivedCalls.add(key);
+          window.SearchUI?.event(event);
+        }
         if (event.type === "regional_context") {
           t.regionalContext = event;
           t.regionSubscriptionId =
@@ -273,6 +289,13 @@
             tool: event.tool,
             result: normalizeResult(event.result),
           });
+          if (
+            event.tool === "save_my_medicines" &&
+            event.result?.status === "saved"
+          )
+            window.FarmerUI?.toast(
+              "手里的药已记录到“我的农药库”，可随时编辑或删除。",
+            );
           progress(`${toolNames[event.tool] || "工具"}已返回，正在整理回答…`);
         }
         if (event.type === "answer_review") {
@@ -329,7 +352,10 @@
       t.messages ||= [];
       t.actions ||= [];
       t.followups ||= [];
-      if (!previous || t.title === "和智麦聊聊")
+      if (
+        !t.aiTitle &&
+        (!previous || t.title === "和智麦聊聊" || t.title === "新诊断")
+      )
         t.title = (text || "照片中的小麦情况").slice(0, 36);
       if (input.photo) t.photos.push(input.photo);
       t.messages.push({
@@ -364,18 +390,26 @@
       }
       return t;
     } catch (error) {
+      const savedNotice = toolResults.some(
+        (t) => t.tool === "save_my_medicines" && t.result?.status === "saved",
+      )
+        ? " 本轮药品资料已保存到“我的农药库”，可以前往查看；重新发送不会重复添加。"
+        : "";
       if (error.name === "AbortError")
         throw new Error(
-          signal?.aborted
+          (signal?.aborted
             ? "已停止生成，输入和照片仍保留。未完成的回答没有保存。"
-            : "等待超时，输入和照片仍保留，请重试。",
+            : "等待超时，输入和照片仍保留，请重试。") + savedNotice,
         );
       if (error instanceof TypeError)
         throw new Error(
-          "暂时连接不上智麦服务，请检查网络后重试。输入和照片仍保留。",
+          "暂时连接不上智麦服务，请检查网络后重试。输入和照片仍保留。" +
+            savedNotice,
         );
+      if (savedNotice) error.message += savedNotice;
       throw error;
     } finally {
+      window.SearchUI?.end();
       lastTransport = structuredClone(transport);
       controller.abort();
       clearTimeout(timer);

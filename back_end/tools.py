@@ -158,6 +158,7 @@ register(Tool(
 ))
 
 register(Tool('list_my_medicines','读取当前用户确认保存的农药资料。不是官方登记依据，不能因持有而判断可以使用。',{'type':'object','properties':{},'required':[]},lambda: '{}'))
+register(Tool('save_my_medicines','用户本轮明确陈述实际持有或已买到具体农药时，主动保存到当前用户农药库，无需另点确认。只记录用户自述，不代表登记核验。不能保存询问、想买、否定、假设、他人用药或仅图片识别结果。支持一次多种，重复去重。',{'type':'object','properties':{'medicines_json':{'type':'string','description':'JSON数组，最多10条，每条含name（本轮原文中的具体药名）、number（本轮文字明确给出的完整登记号，不知道留空）、source_quote（本轮持有陈述的原文片段，含该药名；不要取历史/图片/工具文字）。例如[{"name":"多菌灵","number":"","source_quote":"我手里有多菌灵"}]'}},'required':['medicines_json']},lambda **kwargs:'{}'))
 register(Tool('prepare_weather_check','准备每日天气检查草案，必须明确城市、HH:MM北京时间和检查事项。用户点击确认后才保存，不得声称已创建。',{'type':'object','properties':{'location':{'type':'string'},'time':{'type':'string'},'concern':{'type':'string'}},'required':['location','time','concern']},lambda **kwargs:'{}'))
 
 register(Tool('prepare_reminder','准备普通提醒，不需要天气或地点。支持once指定日期时间、daily每天重复；3点等含糊时间先追问上午下午及日期。确认卡点击保存后才算创建。',{'type':'object','properties':{'name':{'type':'string'},'concern':{'type':'string'},'recurrence':{'type':'string','enum':['once','daily']},'time':{'type':'string','description':'daily时必填HH:MM北京时间'},'run_at':{'type':'string','description':'once时必填YYYY-MM-DDTHH:MM北京时间'}},'required':['name','concern','recurrence']},lambda **kwargs:'{}'))
@@ -172,3 +173,7 @@ register(Tool('record_case_assessment','为当前案例记录结构化初步判�
 register(Tool('compare_case_observations','比较当前案例前后图片观察和用户反馈，不能仅凭照片认定药效。',{'type':'object','properties':{},'required':[]},lambda:'{}'))
 register(Tool('generate_case_report','保存当前案例的证据与规则核对报告。报告保留不确定性，不提供未核验用药处方。',{'type':'object','properties':{},'required':[]},lambda:'{}'))
 register(Tool('prepare_followup','为已保存的当前案例准备一次复查提醒草案。时间须为用户确认的未来明确日期时间，不统一默认三天；concern写明补图及需对比的变化，用户点击后才保存。',{'type':'object','properties':{'run_at':{'type':'string'},'concern':{'type':'string'},'name':{'type':'string'}},'required':['run_at','concern']},lambda **kwargs:'{}'))
+
+from web_search import search_web
+register(Tool('search_web','实时联网搜索病害特征或公开农业资料，返回实际网页标题、URL及摘要。不是农技审校或登记核验，失败如实告知。',{'type':'object','properties':{'query':{'type':'string'}},'required':['query']},lambda query:json.dumps(search_web(query),ensure_ascii=False)))
+register(Tool('save_execution_plan','根据当前案例生成并持久保存排查执行方案。plan_json为JSON字符串，含title、steps及可选crop、region、growth_stage（只逐字摘取当前案例用户已经提供的信息，未知待确认）；steps从photograph补图、observe记录变化、confirm_context核对现场、check_label核对标签、consult农技复核、followup复查选择，最多6项。模型只选适合当前案例的步骤，不生成施药处方。',{'type':'object','properties':{'plan_json':{'type':'string'}},'required':['plan_json']},lambda **kwargs:'{}'))

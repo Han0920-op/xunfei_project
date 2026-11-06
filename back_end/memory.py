@@ -102,7 +102,7 @@ def fact_context(who, case_id=None):
     return items[:20]
 
 
-def save_turn(who,case_id,turn_id,message,answer,vision,tool_results,has_image,photo_id="",image_bytes=None,assessment=None,regional_context=None):
+def save_turn(who,case_id,turn_id,message,answer,vision,tool_results,has_image,photo_id="",image_bytes=None,assessment=None,regional_context=None,initial_title=None):
     identifier(case_id);identifier(turn_id)
     if image_bytes and not photo_id:photo_id=secrets.token_hex(16)
     body={'user':{'id':turn_id+'-u','role':'user','text':message or '帮我看看这张照片','source_type':'user_reported','had_image':bool(has_image), 'photoId':photo_id if has_image else ''},
@@ -115,7 +115,7 @@ def save_turn(who,case_id,turn_id,message,answer,vision,tool_results,has_image,p
         if existing and existing['owner']!=who:raise HTTPException(404,'案例不属于当前身份')
         if not existing:
             if c.execute('SELECT count(*) FROM memory_cases WHERE owner=?',(who,)).fetchone()[0]>=200:raise ValueError('case limit')
-            c.execute('INSERT INTO memory_cases VALUES(?,?,?,?,?,0)',(case_id,who,(message or '照片中的小麦情况')[:80],personal.now().isoformat(),personal.now().isoformat()))
+            c.execute('INSERT INTO memory_cases VALUES(?,?,?,?,?,0)',(case_id,who,initial_title or (message or '照片中的小麦情况')[:80],personal.now().isoformat(),personal.now().isoformat()))
         other=c.execute('SELECT case_id,owner FROM memory_turns WHERE id=?',(turn_id,)).fetchone()
         if other and (other['owner']!=who or other['case_id']!=case_id):raise HTTPException(409,'请求编号已使用')
         inserted=c.execute('INSERT OR IGNORE INTO memory_turns VALUES(?,?,?,?,?)',(turn_id,case_id,who,json.dumps(body,ensure_ascii=False),personal.now().isoformat()))
@@ -183,6 +183,10 @@ def delete_case(case_id:str,request:Request):
         casework.ensure(c);casework.cancel_case_tasks(c,who,case_id,remove=True)
         for table in ('case_states','case_events','case_photos','case_reports'):
             c.execute(f'DELETE FROM {table} WHERE owner=? AND case_id=?',(who,case_id))
+        import execution_plans
+        execution_plans.ensure(c)
+        c.execute('DELETE FROM execution_plans WHERE owner=? AND case_id=?',(who,case_id))
+        if c.execute("SELECT 1 FROM sqlite_master WHERE name='case_titles'").fetchone():c.execute('DELETE FROM case_titles WHERE owner=? AND case_id=?',(who,case_id))
         c.execute('DELETE FROM memory_facts WHERE owner=? AND case_id=?',(who,case_id))
         c.execute('DELETE FROM memory_turns WHERE owner=? AND case_id=?',(who,case_id))
         c.execute('DELETE FROM memory_cases WHERE owner=? AND id=?',(who,case_id))
