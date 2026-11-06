@@ -5,6 +5,7 @@ untrusted conversational context, not proof of registration or tool execution.
 """
 import json
 import re
+import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -235,6 +236,18 @@ def _tool_result(name, args, seen, trace=None):
         return {"status": "unavailable", "error": "tool_failed", "note": "药品保存失败，未确认保存成功，请重试。" if name == 'save_my_medicines' else "查询暂未完成，不能据此判断。"}
 
 
+def tool_receipt(results):
+    lines=['本轮工具已返回结果，但模型未能完成可靠的综合回答。以下仅说明实际执行状态：']
+    for item in results:
+        name=item['tool'];r=item['result'];status=r.get('status')
+        if name=='search_web':lines.append(f"联网搜索：取得{len(r.get('results',[]))}个网页，来源见下方；尚未据此完成诊断。" if status=='ok' else '联网搜索未取得可用资料。')
+        elif name=='save_my_medicines' and status=='saved':lines.append('药品资料已保存到我的农药库。')
+        elif name=='get_weather':lines.append('天气查询已返回，结果见查询依据；天气不能直接作为施药许可。' if status=='ok' else '天气查询未完成。')
+        else:lines.append('其余工具结果见下方查询依据；尚未生成新的诊断结论。')
+    lines.append('可以继续补充关键症状，或请农技人员复核。')
+    return '\n'.join(dict.fromkeys(lines))
+
+
 def run_turn(message, history, image_bytes=None, *, metrics=None, trace=None):
     """SSE-ready events. Error is terminal; only a completed reply gets done."""
     trace = trace or Trace()
@@ -242,6 +255,8 @@ def run_turn(message, history, image_bytes=None, *, metrics=None, trace=None):
     # impersonate a new report, and the model cannot choose another owner.
     trace.current_user_message = message
     trace.turn_tool_results = []
+    trace.deadline = time.monotonic() + 140
+    repair_used = False
     if not config.SPARK_API_PASSWORD:
         yield {"type": "error", "message": "智能体文字服务尚未配置，请联系项目维护人员；输入和照片已保留。"}
         return
@@ -290,6 +305,8 @@ def run_turn(message, history, image_bytes=None, *, metrics=None, trace=None):
         for turn in range(budget + 1):
             if turn == budget:
                 conversation.append({"role": "user", "content": "本轮工具次数已用完。请依据已有真实结果回答，不再调用工具；信息不足就说明缺项，不编造结论。"})
+            if time.monotonic() >= trace.deadline:
+                raise llm.LLMError("模型响应超时", "model_timeout")
             trace.log("model.start", tool_round=turn, context_messages=len(conversation), requires_checks=require_checks)
             result_frame = None
             def counted_chunks():
@@ -306,12 +323,20 @@ def run_turn(message, history, image_bytes=None, *, metrics=None, trace=None):
                     close = getattr(upstream, "close", None)
                     if close:
                         close()
-            with closing(stream_response(counted_chunks(), require_checks=require_checks)) as response:
-                for event in response:
-                    if event["type"] == "model_result":
-                        result_frame = event
-                    else:
-                        yield event
+            for attempt in range(2):
+                try:
+                    with closing(stream_response(counted_chunks(), require_checks=require_checks)) as response:
+                        for event in response:
+                            if event["type"] == "model_result":result_frame = event
+                            else:yield event
+                    break
+                except ResponseFormatError as exc:
+                    trace.log('agent.format_repair',exc=exc)
+                    yield {'type':'answer_reset'}
+                    if repair_used or time.monotonic()>trace.deadline-15:raise
+                    repair_used=True
+                    yield {'type':'status','message':'正在重新整理回答格式，已完成的查询不会重复执行…'}
+                    conversation.append({'role':'system','content':'上次输出格式未通过校验，请重新回答。只输出一个完整JSON对象，不附加解释或思考标签。工具格式为action/tool/args；已有工具结果直接使用，不重做已完成操作。回答必须使用action=answer；涉及图片上下文必须提供verdict、checks四项布尔字段和issue_codes数组，content为最后字段。证据不足用insufficient并说明缺项，不能捏造依据或放宽用药条件。'})
             if result_frame is None:
                 raise ValueError("incomplete model stream")
             trace.generated_title = result_frame.get("title") or getattr(trace,"generated_title",None)
@@ -324,10 +349,16 @@ def run_turn(message, history, image_bytes=None, *, metrics=None, trace=None):
                     if not isinstance(name, str):
                         name = ""
                     args = data.get("args", {})
+                    if isinstance(args,dict):
+                        args=dict(args)
+                        for field in ('plan_json','assessment_json','medicines_json'):
+                            if field in args and isinstance(args[field],(dict,list)):
+                                args[field]=json.dumps(args[field],ensure_ascii=False)
+
                     # Public trace is tool activity, not the model's internal reasoning.
                     yield {"type": "tool_call", "tool": name if name in ALLOWED_TOOLS else "unavailable", "args": args if isinstance(args, dict) else {}}
                     number = args.get("registration_number", "") if isinstance(args, dict) else ""
-                    number = number_info(number).get("registration_number") or number
+                    number = (number_info(number).get("registration_number") or number) if isinstance(number,str) else ""
                     user_text = "\n".join([message, *(m.get("content", "") for m in history if m.get("role") == "user")]).upper()
                     photo_number_unconfirmed = (
                         name == "check_pesticide" and isinstance(number, str)
@@ -339,7 +370,9 @@ def run_turn(message, history, image_bytes=None, *, metrics=None, trace=None):
                     call_id=f"{trace.request_id}-{turn}"
                     event_context={'call_id':call_id,'case_id':getattr(trace,'case_id',None),'turn_id':getattr(trace,'turn_id',None)}
                     signature=name+json.dumps(args,sort_keys=True,ensure_ascii=False)
-                    if name in ALLOWED_TOOLS and signature not in seen:
+                    schema=tools.TOOLS[name].parameters if name in ALLOWED_TOOLS else {}
+                    valid_args=isinstance(args,dict) and all(k in schema.get('properties',{}) and isinstance(v,str) and len(v)<=2000 for k,v in args.items()) and all(k in args for k in schema.get('required',[]))
+                    if name in ALLOWED_TOOLS and valid_args and signature not in seen and not photo_number_unconfirmed:
                         yield {'type':'tool_start','tool':name,**event_context}
                     result = ({"status": "needs_confirmation", "message": "登记号尚未由用户确认，不能把图片转录或模型猜测当成登记事实。"}
                               if photo_number_unconfirmed else _tool_result(name, args, seen, trace=trace))
@@ -347,6 +380,10 @@ def run_turn(message, history, image_bytes=None, *, metrics=None, trace=None):
                     failed=result.get('status') in ('unavailable','error')
                     if failed:yield {'type':'tool_error','tool':name,**event_context,'message':result.get('message',result.get('note','工具未完成'))}
                     yield {"type": "tool_result", "tool": name if name in ALLOWED_TOOLS else "unavailable", "result": result,**event_context}
+                    if name=='search_web' and (failed or not result.get('results')):
+                        yield {'type':'answer','content': '本次联网搜索未能取得可用资料。' + ('搜索服务暂时不可用，可稍后重试。' if failed else '没有找到匹配的网页，可以补充具体病害名称或症状关键词。') + '不能据此判断作物正常或给出用药结论。此前已保存的案例仍保留。'}
+                        yield {'type':'done'}
+                        return
                     if name=='save_execution_plan' and result.get('status')=='saved':
                         yield {'type':'answer','content':result['message']+' 本方案先补齐证据并安排复查，不包含未经核验的施药指令。'}
                         yield {'type':'done'}
@@ -409,7 +446,13 @@ def run_turn(message, history, image_bytes=None, *, metrics=None, trace=None):
         yield error_event(exc.code)
     except ResponseFormatError as exc:
         trace.log("agent.answer_validation_failed", exc=exc, **metrics)
-        yield error_event("answer_format_invalid")
+        if trace.turn_tool_results:
+            trace.case_assessment=None
+            yield {'type':'answer_reset'}
+            yield {'type':'answer','content':tool_receipt(trace.turn_tool_results)}
+            yield {'type':'done'}
+        else:
+            yield error_event("answer_format_invalid")
     except Exception as exc:
         trace.log("agent.failed", exc=exc, **metrics)
         # Never send raw HTTP/WebSocket exceptions or signed request URLs to users.

@@ -69,6 +69,14 @@ class LLMStreamTests(unittest.TestCase):
             self.assertNotIn('private',str(caught.exception))
             response.close.assert_called_once()
 
+    def test_unexpected_provider_shapes_are_controlled_errors(self):
+        for data in [[], {"choices": {}}, {"choices": [None]}, {"choices": [{"delta": []}]}]:
+            response = self.response([('data: ' + json.dumps(data)).encode()])
+            with self.subTest(data=data), patch.object(config, 'SPARK_API_PASSWORD', 'test'), patch.object(llm.requests, 'post', return_value=response), self.assertRaises(llm.LLMError) as caught:
+                list(llm.chat_stream([]))
+            self.assertEqual(caught.exception.code, 'model_stream_invalid')
+            response.close.assert_called_once()
+
     def test_cancelling_stream_closes_response_and_non_200_closes_response(self):
         for status in [200, 401]:
             response = self.response([frame({'content':'第一段'}), frame({'content':'第二段'}), b'data: [DONE]'], status)

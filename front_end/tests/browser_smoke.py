@@ -322,6 +322,22 @@ class FarmerFrontendTests(unittest.TestCase):
         expect(self.page.locator('.agent-answer')).to_have_count(2)
         self.assertEqual(self.page.evaluate('FarmerStore.records()[0].followups[0].note'),'我来复查，昨天没有用药，今天白粉更多了')
 
+    def test_region_loading_does_not_replace_active_composer(self):
+        pending = []
+        self.page.route('**/api/intelligence/chat-context', lambda route: pending.append(route))
+        self.go()
+        expect(self.page.locator('.chat-region-note')).to_contain_text('正在读取')
+        self.page.locator('#messageInput').fill('我的实际复查内容')
+        self.page.evaluate('window.originalComposer = document.getElementById("messageInput")')
+        self.assertEqual(len(pending), 1)
+        pending[0].fulfill(status=200, json={'options': []})
+        expect(self.page.locator('#chatRegion')).to_be_visible()
+        self.assertTrue(self.page.evaluate('window.originalComposer === document.getElementById("messageInput")'))
+        expect(self.page.locator('#messageInput')).to_have_value('我的实际复查内容')
+        self.page.locator('#sendButton').click()
+        self.answer()
+        self.assertIn('我的实际复查内容'.encode(), self.bodies[-1])
+
     def test_storage_failure_preserves_inputs_and_removes_orphan_photo(self):
         self.go()
         self.page.evaluate('() => {Storage.prototype.setItem = function(){throw new DOMException("Quota exceeded", "QuotaExceededError")}}')

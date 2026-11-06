@@ -3,7 +3,7 @@
 (() => {
   "use strict";
   const S = window.FarmerStore;
-  const CLIENT_VERSION = "2026.11.06.delivery";
+  const CLIENT_VERSION = "2026.11.06.stable";
   const STREAM_PROTOCOL = "zhimai-chat-sse-v2";
   let lastTransport = null;
   const toolNames = {
@@ -161,6 +161,7 @@
     };
     let started = false;
     const t = previous ? structuredClone(previous) : create();
+    if (!previous && input.attempt?.caseId) t.id = input.attempt.caseId;
     t.memoryContext = [];
     t.regionalContext = null;
     const text = String(input.text || "").trim();
@@ -180,7 +181,7 @@
       input.regionSubscriptionId ?? previous?.regionSubscriptionId ?? "",
     );
     form.set("case_id", t.id);
-    const memoryTurnId = S.id();
+    const memoryTurnId = input.attempt?.turnId || S.id();
     form.set("turn_id", memoryTurnId);
     if (input.photo?.id) form.set("photo_id", input.photo.id);
     form.set("history", JSON.stringify(history(previous)));
@@ -296,13 +297,23 @@
             window.FarmerUI?.toast(
               "手里的药已记录到“我的农药库”，可随时编辑或删除。",
             );
-          progress(`${toolNames[event.tool] || "工具"}已返回，正在整理回答…`);
+          progress(
+            ["unavailable", "error"].includes(event.result?.status)
+              ? `${toolNames[event.tool] || "工具"}未能完成，正在返回处理结果…`
+              : `${toolNames[event.tool] || "工具"}已返回，正在整理回答…`,
+          );
         }
         if (event.type === "answer_review") {
           review = {
             status: event.status,
             issue_codes: event.issue_codes || [],
           };
+        }
+        if (event.type === "answer_reset") {
+          answer = "";
+          hasFinalAnswer = false;
+          review = null;
+          input.onDelta?.("");
         }
         if (event.type === "answer_delta") {
           transport.answer_delta_events += 1;

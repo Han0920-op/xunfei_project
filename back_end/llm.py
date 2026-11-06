@@ -78,10 +78,13 @@ def chat_stream(messages: list[dict], *, trace=None):
     if not config.SPARK_API_PASSWORD:
         raise LLMError("未配置 SPARK_API_PASSWORD，请在 .env 中填写讯飞星火的 APIPassword。")
 
+    remaining = getattr(trace, "deadline", float("inf")) - time.monotonic()
+    if remaining <= 0:
+        raise LLMError("模型响应超时", "model_timeout")
     try:
         resp = requests.post(
             _url(), json=_payload(messages, stream=True), headers=_headers(),
-            timeout=(5, 45), stream=True,
+            timeout=(min(5, remaining), min(45, remaining)), stream=True,
         )
     except requests.Timeout as exc:
         raise LLMError("模型连接超时", "model_timeout") from exc
@@ -91,7 +94,7 @@ def chat_stream(messages: list[dict], *, trace=None):
     # 上游是 text/event-stream 且不带 charset，requests 会默认按 ISO-8859-1 解码，
     # 中文就变成「ä½ å¥½」式乱码。这里直接读原始字节，显式用 UTF-8 解码。
     resp.encoding = "utf-8"
-    deadline = time.monotonic() + 120
+    deadline = min(time.monotonic() + 120, getattr(trace,"deadline",float("inf")))
     finished = False
     try:
         if trace:
@@ -113,6 +116,7 @@ def chat_stream(messages: list[dict], *, trace=None):
                 break
             try:
                 event = json.loads(data)
+                if not isinstance(event,dict):raise LLMError("模型流格式错误", "model_stream_invalid")
                 # Xunfei can send a business failure with HTTP 200 and no choices.
                 # Treat it as the original upstream failure, not an empty answer.
                 if isinstance(event, dict) and event.get("code") not in (None, 0, "0"):
@@ -131,9 +135,11 @@ def chat_stream(messages: list[dict], *, trace=None):
                         error.provider_code = provider_error["code"]
                     raise error
                 choices = event.get("choices", [])
+                if not isinstance(choices,list):raise LLMError("模型流格式错误", "model_stream_invalid")
                 if not choices:
                     continue  # optional usage-only frame
                 choice = choices[0]
+                if not isinstance(choice,dict) or not isinstance(choice.get("delta",{}),dict):raise LLMError("模型流格式错误", "model_stream_invalid")
                 if choice.get("finish_reason") not in (None, "stop"):
                     error = LLMError("模型回答被截断或过滤", "model_truncated" if choice.get("finish_reason") == "length" else "model_filtered")
                     error.finish_reason = choice.get("finish_reason")

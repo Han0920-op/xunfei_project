@@ -18,6 +18,7 @@
     busy: false,
     progress: "",
     pending: null,
+    attempt: null,
     partialAnswer: "",
     controller: null,
     pickerVersion: 0,
@@ -412,7 +413,11 @@
   }
   async function send(choice) {
     if (ui.busy || ui.photoLoading) return;
-    const text = typeof choice === "string" ? choice : ui.draft.trim();
+    const text =
+      typeof choice === "string"
+        ? choice
+        : (document.getElementById("messageInput")?.value ?? ui.draft).trim();
+    ui.draft = text;
     if (!text && !ui.photo) {
       document.getElementById("messageInput")?.focus();
       return;
@@ -430,14 +435,28 @@
     ui.error = "";
     ui.progress = ui.photo ? "正在发送照片，准备图片理解…" : "正在联系智麦…";
     render({ scroll: Boolean(ui.record) });
+    const attemptKey = JSON.stringify([ui.record?.id || "", text, ui.regionId]);
+    if (
+      !ui.attempt ||
+      ui.attempt.key !== attemptKey ||
+      ui.attempt.file !== ui.photo
+    )
+      ui.attempt = {
+        key: attemptKey,
+        file: ui.photo,
+        caseId: ui.record?.id || S.id(),
+        turnId: S.id(),
+        photoId: S.id(),
+      };
     let savedPhoto = null;
     try {
-      if (ui.photo) savedPhoto = await S.putPhoto(ui.photo);
+      if (ui.photo) savedPhoto = await S.putPhoto(ui.photo, ui.attempt.photoId);
       const next = await A.respond(
         ui.record,
         {
           text,
           regionSubscriptionId: ui.regionId,
+          attempt: ui.attempt,
           photo: savedPhoto,
           file: ui.photo,
           onProgress: (message) => {
@@ -451,6 +470,7 @@
         ui.controller.signal,
       );
       S.save(next);
+      ui.attempt = null;
       ui.record = next;
       ui.regionId = next.regionSubscriptionId || "";
       ui.draft = "";
@@ -740,7 +760,15 @@
     if (e.target.id === "chatRegion") ui.regionId = e.target.value;
   });
   window.RegionalChat?.ready.then(() => {
-    if (!ui.busy && !ui.photoLoading) render();
+    // Updating subscriptions must not replace the composer while typing.
+    const region = root.querySelector(
+      ".composer .chat-region, .composer .chat-region-note",
+    );
+    if (region)
+      region.outerHTML = window.RegionalChat.markup(
+        ui.regionId,
+        ui.busy || ui.photoLoading,
+      );
   });
   render();
   if (!isHistory && !requested && params.get("intent") === "medicine")

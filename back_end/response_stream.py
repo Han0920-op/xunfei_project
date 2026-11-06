@@ -1,6 +1,7 @@
 """Separate private tool JSON from incremental, checked user-facing text.
 
-The content field must be last. Decode only complete JSON string characters;
+Canonical answers stream with content last; other valid field orders buffer.
+Decode only complete JSON string characters;
 never expose tool arguments, reasoning, control metadata or broken escapes.
 """
 import json
@@ -150,9 +151,11 @@ def stream_response(chunks, *, require_checks=False):
                 if text.lower().startswith(TOOL_OPEN):mode='wrapped_tool'
                 elif text.lower().startswith(('<tool','</tool','<function','<think','<analysis')):
                     raise ValueError('unsupported tool envelope')
+                elif text.startswith("`"):mode="fenced_json"
                 else:mode = "json" if text[0] == "{" else "text"
                 if require_checks and mode == "text":
                     raise ValueError("missing evidence header")
+            if mode in ('fenced_json','buffered_json'):continue
             if mode == 'wrapped_tool':
                 continue  # Buffer private parameters until the entire object validates.
             if mode == "text":
@@ -168,6 +171,9 @@ def stream_response(chunks, *, require_checks=False):
                     fields, _ = prefix
                     fields = dict(fields)
                     generated_title = fields.pop("title", None)
+                    if (require_checks and not {"action","verdict","checks"}.issubset(fields)) or fields.get("action") != "answer":
+                        mode="buffered_json"
+                        continue
                     if require_checks or "checks" in fields:
                         header = AnswerHeader.model_validate(fields).ensure_supported()
                         yield {"type": "answer_review", "status": header.verdict, "issue_codes": header.issue_codes}
@@ -178,6 +184,28 @@ def stream_response(chunks, *, require_checks=False):
             if delta:
                 emitted = value
                 yield {"type": "answer_delta", "content": delta}
+        if mode in ('fenced_json','buffered_json'):
+            raw=buffer.strip()
+            if mode=='fenced_json':
+                import re
+                match=re.fullmatch(r'```(?:json)?\s*([\s\S]*?)\s*```',raw,flags=re.IGNORECASE)
+                if not match:raise ValueError('unexpected fenced response')
+                raw=match[1]
+            data=json.loads(raw,object_pairs_hook=unique_object)
+            if not isinstance(data,dict):raise ValueError('invalid frame')
+            if data.get('action')=='tool':
+                if set(data)-{'action','tool','args'} or not isinstance(data.get('tool'),str) or not isinstance(data.get('args',{}),dict):raise ValueError('invalid tool envelope')
+                yield {'type':'model_result','data':data,'content':json.dumps(data,ensure_ascii=False)}
+                return
+            title=data.pop('title',None);content=data.pop('content',None)
+            if not isinstance(content,str) or not content.strip():raise ValueError('empty model response')
+            if require_checks or 'checks' in data:
+                checked=AnswerHeader.model_validate(data).ensure_supported()
+                yield {'type':'answer_review','status':checked.verdict,'issue_codes':checked.issue_codes}
+            elif data!={'action':'answer'}:raise ValueError('invalid answer header')
+            yield {'type':'answer_delta','content':content}
+            yield {'type':'model_result','data':None,'content':content,'title':title}
+            return
         if mode == 'wrapped_tool':
             data=wrapped_tool(buffer.lstrip())
             yield {'type':'model_result','data':data,'content':json.dumps(data,ensure_ascii=False)}
@@ -191,12 +219,12 @@ def stream_response(chunks, *, require_checks=False):
             if data.get("action") == "tool" and not emitted and prefix is None:
                 yield {"type": "model_result", "data": data, "content": buffer}
                 return
-            data.pop("title", None)
+            generated_title = data.pop("title", None)
             final = data.pop("content", None)
             if not isinstance(final, str) or not final.strip() or final != emitted:
                 raise ValueError("incomplete answer")
             if header is not None:
-                if data != header.model_dump():
+                if AnswerHeader.model_validate(data).ensure_supported().model_dump() != header.model_dump():
                     raise ValueError("changed answer metadata")
             elif data != {"action": "answer"}:
                 raise ValueError("unexpected answer field")

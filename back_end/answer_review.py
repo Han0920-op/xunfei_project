@@ -18,7 +18,7 @@ class AnswerHeader(BaseModel):
     action: Literal["answer"]
     verdict: Literal["supported", "revised", "insufficient"]
     checks: Checks
-    issue_codes: list[Literal["unknown_capture_date", "seasonal_conflict", "history_conflict", "overdiagnosis", "unsupported_action", "insufficient_evidence"]] = Field(max_length=6)
+    issue_codes: list[Literal["unknown_capture_date", "seasonal_conflict", "history_conflict", "overdiagnosis", "unsupported_action", "insufficient_evidence"]] = Field(default_factory=list,max_length=6)
 
     def ensure_supported(self):
         if not all(self.checks.model_dump().values()):

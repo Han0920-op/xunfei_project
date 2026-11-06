@@ -168,10 +168,10 @@
       });
     return dbPromise;
   }
-  async function putPhoto(file) {
+  async function putPhoto(file, photoId = id()) {
     const database = await db();
     const photo = {
-      id: id(),
+      id: photoId,
       name: file.name,
       type: file.type,
       size: file.size,

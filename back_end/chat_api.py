@@ -136,6 +136,28 @@ async def chat(request: Request, message: str = Form(""), history: str = Form("[
         with memory.db() as c:
             old=c.execute('SELECT archived FROM memory_cases WHERE owner=? AND id=?',(actor,case_id)).fetchone()
             if old and old['archived']:raise HTTPException(409,'案例已结束，请先在案例页面重新打开，再继续咨询。')
+    # Recover a completed request after a lost SSE connection without paying for
+    # another model call or replaying write tools. IDs cannot be reused for new input.
+    if actor and case_id and turn_id:
+        with memory.db() as c:
+            row=c.execute('SELECT body,owner,case_id FROM memory_turns WHERE id=?',(turn_id,)).fetchone()
+            if row:
+                if row['owner']!=actor or row['case_id']!=case_id:raise HTTPException(409,'请求编号已使用，请开始新的请求。')
+                saved=json.loads(row['body'])
+                if saved['user']['text']!=(message or '帮我看看这张照片') or bool(saved['user'].get('had_image'))!=bool(image_bytes):raise HTTPException(409,'重试内容已变化，请开始新的请求。')
+                if image_bytes:
+                    old_photo=c.execute('SELECT content FROM case_photos WHERE owner=? AND case_id=? AND id=?',(actor,case_id,saved['user'].get('photoId'))).fetchone()
+                    if not old_photo or bytes(old_photo['content'])!=image_bytes:raise HTTPException(409,'重试照片已变化，请开始新的请求。')
+                title=memory.owned(c,actor,case_id)['title']
+                replay_id=uuid.uuid4().hex[:12]
+                def replay():
+                    frames=[{'type':'start','request_id':replay_id,'server_version':APP_VERSION,'stream_protocol':STREAM_PROTOCOL}, {'type':'status','message':'正在恢复这次已保存的回答…'}]
+                    if saved['assistant'].get('regionalContext'):frames.append({'type':'regional_context',**saved['assistant']['regionalContext']})
+                    frames.extend({'type':'vision_result',**v} for v in saved['assistant'].get('vision',[]))
+                    frames.extend({'type':'tool_result',**t} for t in saved['assistant'].get('toolResults',[]))
+                    frames.extend([{'type':'answer','content':saved['assistant']['text']},{'type':'memory_saved','case_id':case_id},{'type':'case_title','case_id':case_id,'title':title},{'type':'done'}])
+                    for frame in frames:yield 'data: '+json.dumps(frame,ensure_ascii=False)+'\n\n'
+                return StreamingResponse(replay(),media_type='text/event-stream',headers={**SSE_HEADERS,'X-Request-ID':replay_id})
     if actor and case_id and not messages:
         try:
             old_case=memory.get_case(actor,case_id)
