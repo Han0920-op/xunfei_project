@@ -57,7 +57,7 @@ class MemoryBrowserTests(unittest.TestCase):
    self.page.goto(self.base+'/index.html');self.send('上次黄叶那件事')
    expect(self.page.get_by_role('link',name='是这次，继续这个案例',exact=True)).to_be_visible()
    self.page.get_by_role('link',name='是这次，继续这个案例',exact=True).click()
-   expect(self.page.locator('.thread-heading h1')).to_have_text('小麦黄叶症状排查')
+   expect(self.page.frame_locator('iframe.app-navigation-view:not([hidden])').locator('.thread-heading h1')).to_have_text('小麦黄叶症状排查')
    self.assertIn(first_id,self.page.url)
   self.page.goto(self.base+'/memory.html');self.page.get_by_role('button',name='生成恢复码',exact=True).click();self.page.locator('#dialog').get_by_role('button',name='生成恢复码',exact=True).click()
   code=self.page.get_by_role('textbox',name='恢复码',exact=True).input_value()

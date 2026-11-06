@@ -86,11 +86,12 @@ class DeliveryBrowserTests(unittest.TestCase):
             self.page.get_by_role(
                 "link", name="查看已保存的执行方案", exact=True
             ).click()
+            view = self.page.frame_locator("iframe.app-navigation-view:not([hidden])")
             expect(
-                self.page.get_by_role("heading", name="排查方案：小麦黄叶变化排查")
+                view.get_by_role("heading", name="排查方案：小麦黄叶变化排查")
             ).to_be_visible()
             self.overflow()
-            self.page.get_by_role("link", name="执行方案", exact=True).click()
+            view.get_by_role("link", name="执行方案", exact=True).click()
             expect(
-                self.page.get_by_role("link", name="排查方案：小麦黄叶变化排查")
+                view.get_by_role("link", name="排查方案：小麦黄叶变化排查")
             ).to_be_visible()

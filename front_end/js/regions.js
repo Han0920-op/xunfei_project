@@ -3,7 +3,7 @@
   let items = [],
     state = "loading";
   const { esc, icon } = FarmerUI;
-  const ready = (async () => {
+  async function refresh() {
     try {
       await window.PersonalReady;
       const r = await fetch("/api/intelligence/chat-context", {
@@ -17,7 +17,8 @@
     } catch {
       state = "unavailable";
     }
-  })();
+  }
+  const ready = refresh();
   function markup(value = "", disabled = false) {
     if (state === "loading")
       return '<p class="chat-region-note">正在读取地区订阅…</p>';
@@ -38,5 +39,5 @@
     const s = data.selected;
     return `<div class="knowledge-quote"><strong>本次参考地区 · ${esc(s.province)} ${esc(s.city)}</strong><p>来自你选择的地区订阅，未作为照片拍摄地或现场发病事实保存。</p>${(data.official_signals || []).map((b) => `<p>相关公开情报：${esc(b.title)} · 发布 ${esc(b.published_on)} · 范围 ${esc(b.regions.join("、"))}${b.cities?.length ? " " + esc(b.cities.join("、")) : "（省级）"}</p>`).join("") || "<small>本次未取得符合地区、对象和有效期要求的病虫情报。</small>"}</div>`;
   }
-  window.RegionalChat = { ready, markup, evidence };
+  window.RegionalChat = { ready, refresh, markup, evidence };
 })();

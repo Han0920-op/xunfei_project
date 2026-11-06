@@ -107,7 +107,7 @@
     document.body.append(box);
   }
   async function poll() {
-    if (busy) return;
+    if (busy || !(window.ChatNavigation?.isActive?.() ?? true)) return;
     busy = true;
     try {
       await window.PersonalReady;
@@ -172,14 +172,21 @@
               });
               n.onclick = () => {
                 window.focus();
-                location.href = item.case_id
-                  ? "memory.html?case=" + encodeURIComponent(item.case_id)
-                  : "personal.html?tab=notifications";
+                window.ChatNavigation.go(
+                  item.case_id
+                    ? "memory.html?case=" + encodeURIComponent(item.case_id)
+                    : "personal.html?tab=notifications",
+                );
               };
             } catch {}
           }
         }
-        if (!current && document.visibilityState === "visible") show(item);
+        if (
+          !current &&
+          document.visibilityState === "visible" &&
+          (window.ChatNavigation?.isActive?.() ?? true)
+        )
+          show(item);
       }
       window.dispatchEvent(new CustomEvent("reminder-inbox", { detail: rows }));
     } catch {
@@ -193,8 +200,13 @@
     setInterval(poll, 5000);
   });
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") poll();
+    if (
+      document.visibilityState === "visible" &&
+      (window.ChatNavigation?.isActive?.() ?? true)
+    )
+      poll();
   });
+  window.addEventListener("zhimai:resume", poll);
   window.ZhimaiReminders = {
     refresh: poll,
     preview: (item) => {

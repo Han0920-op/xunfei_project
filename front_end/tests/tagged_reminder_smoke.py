@@ -57,7 +57,7 @@ class TaggedReminderBrowserTests(unittest.TestCase):
         self.assertEqual(len(tasks), 1)
         self.assertEqual(tasks[0]["name"], "检查农作物")
         self.page.get_by_role("link", name="去提醒页查看", exact=True).click()
-        expect(self.page.locator("article")).to_contain_text("检查农作物")
+        expect(self.page.frame_locator("iframe.app-navigation-view:not([hidden])").locator("article")).to_contain_text("检查农作物")
         with patch.object(personal, "now", return_value=target + timedelta(seconds=1)):
             personal.tick()
             personal.tick()

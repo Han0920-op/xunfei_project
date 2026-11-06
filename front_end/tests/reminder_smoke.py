@@ -65,7 +65,7 @@ class ReminderBrowserTests(unittest.TestCase):
    expect(self.page.locator('.reminder-draft')).to_contain_text('已设置，已保存')
    self.assertEqual(len(self.context.request.get(self.base+'/api/personal/tasks').json()),1)
    self.page.get_by_role('link',name='去提醒页查看',exact=True).click()
-   expect(self.page.locator('article')).to_contain_text('复查麦苗')
+   expect(self.page.frame_locator('iframe.app-navigation-view:not([hidden])').locator('article')).to_contain_text('复查麦苗')
  def test_unread_notification_survives_page_closed_and_read_ack(self):
   self.page.goto(self.base+'/index.html');self.page.locator('#messageInput').wait_for()
   target=personal.now()+timedelta(minutes=2)

@@ -59,12 +59,13 @@ class ChatInventoryBrowserTests(unittest.TestCase):
             expect(receipt.last).to_contain_text("已有记录，未重复添加")
             self.assertEqual(len(personal.listing(self.who, "medicines")), 2)
             receipt.last.get_by_role("link", name="查看、编辑我的农药库").click()
-            expect(self.page.locator(".personal-card")).to_have_count(2)
-            self.page.locator(".personal-card").filter(
-                has=self.page.get_by_role("heading", name="多菌灵", exact=True)
+            inventory = self.page.frame_locator("iframe.app-navigation-view:not([hidden])")
+            expect(inventory.locator(".personal-card")).to_have_count(2)
+            inventory.locator(".personal-card").filter(
+                has=inventory.get_by_role("heading", name="多菌灵", exact=True)
             ).get_by_role("button", name="删除", exact=True).click()
-            self.page.get_by_role("button", name="确认删除", exact=True).click()
-            expect(self.page.locator(".personal-card")).to_have_count(1)
+            inventory.get_by_role("button", name="确认删除", exact=True).click()
+            expect(inventory.locator(".personal-card")).to_have_count(1)
             self.assertEqual(
                 personal.listing(self.who, "medicines")[0]["name"], "吡虫啉"
             )

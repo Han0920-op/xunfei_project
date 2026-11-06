@@ -22,6 +22,9 @@ class WeatherAlertBrowserTests(unittest.TestCase):
                 "city": "郑州",
                 "pests": [] if weather else ["条锈病"],
                 "weather_enabled": weather,
+                # This flow checks delivery, independent of the wall-clock quiet window.
+                "quiet_start": "00:00",
+                "quiet_end": "00:00",
             },
         )
         self.assertEqual(r.status, 200)

@@ -3,7 +3,7 @@
 (() => {
   "use strict";
   const S = window.FarmerStore;
-  const CLIENT_VERSION = "2026.11.06.stable";
+  const CLIENT_VERSION = "2026.11.07.navigation";
   const STREAM_PROTOCOL = "zhimai-chat-sse-v2";
   let lastTransport = null;
   const toolNames = {
@@ -246,7 +246,7 @@
           started = true;
           transport.server_version = event.server_version;
           transport.stream_protocol = event.stream_protocol;
-          transport.request_id = event.request_id;
+          transport.request_id = event.request_id ?? null;
         }
         if (event.type === "case_title" && event.case_id === t.id) {
           t.title = event.title;

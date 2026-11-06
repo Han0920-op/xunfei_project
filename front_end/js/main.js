@@ -264,7 +264,7 @@
       rs = all.filter((t) =>
         `${t.title}${t.facts?.description || ""}`.includes(ui.search),
       );
-    return `<section class="records-heading"><div><span class="small-label">之前的问题，都在这里</span><h1>我的记录</h1><nav class="reminder-tabs"><a href="history.html" aria-current="page">诊断记录</a><a href="plans.html">执行方案</a></nav><p>带着新照片回来，继续看看有没有变化。</p></div><a class="button primary" href="index.html">${icon("plus")}问个新问题</a></section><p class="storage-note">${icon("history")}新对话与压缩照片保存到你的案例；旧记录可手动同步文字。</p><p><a class="button secondary" href="memory.html">管理长期记忆与服务端案例 ${icon("arrow")}</a></p>${all.length > 6 ? `<label class="record-search">${icon("search")}<input id="recordSearch" placeholder="找之前的问题" value="${esc(ui.search)}" aria-label="搜索记录"></label>` : ""}<div class="record-list">${rs.map((t) => `<article class="record-row"><a class="record-main" href="index.html?record=${encodeURIComponent(t.id)}"><div class="record-thumbnail">${t.photos[0] ? `<img data-photo="${esc(t.photos[0].id)}" data-record="${esc(t.id)}" alt="此前的照片" loading="lazy">` : icon(t.kind === "medicine" ? "book" : "leaf")}</div><div><span class="record-date">${day(t.updatedAt)}${t.demo ? " · 此前的演示记录" : " · 智能体对话"}</span><h2>${esc(t.title)}</h2><p>${esc(recordState(t))}${t.followupDate ? " · " + day(t.followupDate) : ""}</p></div></a><div class="record-row-actions">${!t.archived ? `<button class="button secondary" data-action="open-followup" data-id="${esc(t.id)}">${icon("camera")}来复查</button>` : ""}<button class="icon-button" data-action="record-more" data-id="${esc(t.id)}" aria-label="管理${esc(t.title)}">${icon("more")}</button></div></article>`).join("") || `<section class="empty-records"><span>${icon("leaf")}</span><h2>${all.length ? "没找到这条记录" : "还没有记录，先从一个问题开始"}</h2><p>拍照或说说情况，智麦会帮你留住这次的观察。</p><a class="button primary" href="index.html">去问智麦 ${icon("arrow")}</a></section>`}</div><section id="serverMemoryCases" aria-live="polite"></section>`;
+    return `<section class="records-heading"><div><span class="small-label">之前的问题，都在这里</span><h1>我的记录</h1><nav class="reminder-tabs"><a href="history.html" aria-current="page">诊断记录</a><a href="plans.html">执行方案</a></nav><p>带着新照片回来，继续看看有没有变化。</p></div><a class="button primary" href="index.html" data-new-chat>${icon("plus")}问个新问题</a></section><p class="storage-note">${icon("history")}新对话与压缩照片保存到你的案例；旧记录可手动同步文字。</p><p><a class="button secondary" href="memory.html">管理长期记忆与服务端案例 ${icon("arrow")}</a></p>${all.length > 6 ? `<label class="record-search">${icon("search")}<input id="recordSearch" placeholder="找之前的问题" value="${esc(ui.search)}" aria-label="搜索记录"></label>` : ""}<div class="record-list">${rs.map((t) => `<article class="record-row"><a class="record-main" href="index.html?record=${encodeURIComponent(t.id)}"><div class="record-thumbnail">${t.photos[0] ? `<img data-photo="${esc(t.photos[0].id)}" data-record="${esc(t.id)}" alt="此前的照片" loading="lazy">` : icon(t.kind === "medicine" ? "book" : "leaf")}</div><div><span class="record-date">${day(t.updatedAt)}${t.demo ? " · 此前的演示记录" : " · 智能体对话"}</span><h2>${esc(t.title)}</h2><p>${esc(recordState(t))}${t.followupDate ? " · " + day(t.followupDate) : ""}</p></div></a><div class="record-row-actions">${!t.archived ? `<button class="button secondary" data-action="open-followup" data-id="${esc(t.id)}">${icon("camera")}来复查</button>` : ""}<button class="icon-button" data-action="record-more" data-id="${esc(t.id)}" aria-label="管理${esc(t.title)}">${icon("more")}</button></div></article>`).join("") || `<section class="empty-records"><span>${icon("leaf")}</span><h2>${all.length ? "没找到这条记录" : "还没有记录，先从一个问题开始"}</h2><p>拍照或说说情况，智麦会帮你留住这次的观察。</p><a class="button primary" href="index.html">去问智麦 ${icon("arrow")}</a></section>`}</div><section id="serverMemoryCases" aria-live="polite"></section>`;
   }
   function render(options = {}) {
     root.innerHTML = `${S.readError ? `<p class="storage-error" role="alert">${esc(S.readError)}</p>` : ""}${requested && !ui.record && !isHistory ? `<section class="empty-records"><h1>这条记录不在当前设备中</h1><p>可以回到我的记录重新选择。旧版服务端记录暂未在这个原型中加载。</p><a class="button primary" href="history.html">查看我的记录</a></section>` : isHistory ? history() : ui.record || ui.pending ? conversation() : home()}`;
@@ -475,9 +475,7 @@
       ui.regionId = next.regionSubscriptionId || "";
       ui.draft = "";
       clearPhoto();
-      window.history.replaceState(
-        null,
-        "",
+      window.ChatNavigation.replace(
         `index.html?record=${encodeURIComponent(next.id)}`,
       );
     } catch (err) {
@@ -496,9 +494,7 @@
     try {
       S.save(next);
       ui.record = next;
-      window.history.replaceState(
-        null,
-        "",
+      window.ChatNavigation.replace(
         `index.html?record=${encodeURIComponent(next.id)}`,
       );
       render({ scroll: true });
@@ -511,7 +507,7 @@
   }
   function startMedicine(labelPhoto = false) {
     if (isHistory) {
-      location.href = "index.html?intent=medicine";
+      window.ChatNavigation.go("index.html?intent=medicine");
       return;
     }
     const next = A.startMedicine(ui.record);
@@ -524,7 +520,9 @@
   function startFollowup(record = ui.record, pick = false) {
     if (!record) return;
     if (isHistory) {
-      location.href = `index.html?record=${encodeURIComponent(record.id)}&followup=1`;
+      window.ChatNavigation.go(
+        `index.html?record=${encodeURIComponent(record.id)}&followup=1`,
+      );
       return;
     }
     if (saveTransition(A.startFollowup(record))) {
@@ -535,8 +533,9 @@
   }
   function chooseDate() {
     if (ui.record?.serverMemory?.saved) {
-      location.href =
-        "personal.html?tab=tasks&case=" + encodeURIComponent(ui.record.id);
+      window.ChatNavigation.go(
+        "personal.html?tab=tasks&case=" + encodeURIComponent(ui.record.id),
+      );
       return;
     }
     U.modal(
@@ -658,7 +657,7 @@
       () => {
         S.remove(record.id);
         U.close();
-        if (!isHistory) location.href = "history.html";
+        if (!isHistory) window.ChatNavigation.go("history.html");
         else render();
       },
       "确认移出",
@@ -759,7 +758,7 @@
   root.addEventListener("change", (e) => {
     if (e.target.id === "chatRegion") ui.regionId = e.target.value;
   });
-  window.RegionalChat?.ready.then(() => {
+  function refreshRegionControl() {
     // Updating subscriptions must not replace the composer while typing.
     const region = root.querySelector(
       ".composer .chat-region, .composer .chat-region-note",
@@ -769,6 +768,20 @@
         ui.regionId,
         ui.busy || ui.photoLoading,
       );
+  }
+  window.RegionalChat?.ready.then(refreshRegionControl);
+  window.addEventListener("zhimai:resume", () => {
+    if (!ui.busy && ui.record) {
+      const saved = S.get(ui.record.id);
+      if (saved) {
+        ui.record = saved;
+        render();
+      }
+    }
+    window.RegionalChat?.refresh().then(refreshRegionControl);
+  });
+  window.addEventListener("storage", (event) => {
+    if (isHistory && event.key === "zhimai.frontend.v1") render();
   });
   render();
   if (!isHistory && !requested && params.get("intent") === "medicine")

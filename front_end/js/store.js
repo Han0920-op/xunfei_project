@@ -26,7 +26,20 @@
       month: "2-digit",
       day: "2-digit",
     }).format(new Date());
+  function refresh() {
+    if (readError) return;
+    try {
+      const raw = localStorage.getItem(KEY);
+      const next = raw ? JSON.parse(raw) : {};
+      if (!next || typeof next !== "object" || Array.isArray(next))
+        throw Error();
+      state = next;
+    } catch {
+      readError = "暂时读不到本机记录，请检查浏览器存储。";
+    }
+  }
   function write(fn) {
+    refresh();
     if (readError) throw new Error(readError);
     const next = structuredClone(state);
     fn(next);
@@ -101,6 +114,7 @@
     };
   }
   function records() {
+    refresh();
     const current = state.farmerThreads || [];
     const currentIds = new Set(current.map((x) => x.id));
     const hidden = new Set(state.farmerHiddenLegacy || []);

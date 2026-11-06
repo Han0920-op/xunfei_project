@@ -1,7 +1,7 @@
 """Public release/protocol identifiers, no environment values or credentials."""
 from fastapi.staticfiles import StaticFiles
 
-APP_VERSION = "2026.11.06.stable"
+APP_VERSION = "2026.11.07.navigation"
 STREAM_PROTOCOL = "zhimai-chat-sse-v2"
 
 
