@@ -68,7 +68,7 @@
     })[name] || "工具查询";
   function agentTraceHTML(m) {
     const vision = m.vision || [],
-      tools = m.toolResults || [];
+      tools = (m.toolResults || []).filter((t) => t.tool !== "search_web");
     if (
       !vision.length &&
       !tools.length &&
@@ -203,7 +203,7 @@
         )
         .join(
           "",
-        )}${inventoryReceipt(m)}${window.ReminderCards.markup(ui.record.id, m)}${window.MemoryUI?.cards(ui.record.id, m) || ""}${agentTraceHTML(m)}${last ? `<div class="answer-actions">${actionButton("photo", "补充照片", "camera")}${actionButton("summary", "下载问题摘要", "download")}</div>` : ""}`;
+        )}${window.SearchUI?.forMessage(m) || ""}${inventoryReceipt(m)}${window.ReminderCards.markup(ui.record.id, m)}${window.MemoryUI?.cards(ui.record.id, m) || ""}${agentTraceHTML(m)}${last ? `<div class="answer-actions">${actionButton("photo", "补充照片", "camera")}${actionButton("summary", "下载问题摘要", "download")}</div>` : ""}`;
     else if (m.type === "local-note") content = `<p>${esc(m.text)}</p>`;
     else if (m.type === "question")
       content = `<p class="question-text">${esc(m.text)}</p>${m.hint ? `<p class="message-hint">${esc(m.hint)}</p>` : ""}${knowledgeHTML(m.knowledge)}`;
@@ -666,7 +666,7 @@
   function scope() {
     U.modal(
       "功能范围与数据说明",
-      `<p>现在可以直接与智麦对话。发送照片后会调用图片理解，再由智能体结合已知情况选择回答、补问、检索知识或调用天气、登记核对工具。不会固定要求你回答发生范围或生育期。</p><p>点击发送才会把本次文字和所选照片交给后端及讯飞模型处理。新对话和去除定位信息的压缩照片保存到你的服务端案例，可用浏览器身份及恢复码恢复。提醒支持关联案例复查、天气检查与自愿地区订阅，网页打开时有站内提示，授权后可显示桌面通知。没有配置模型或服务不可用时会明确报错，不会用演示回复代替。</p><p>天气查询需要明确地点和可用接口，失败不会替换成模拟天气。登记资料来自20条公告记录，当前状态与到期日待核实，不能把范围相符当成现在可以施药。知识资料待农技审校，图片与模型回答也不等于确诊。</p><p class="dialog-note">请保存长期记忆页提供的恢复码，以便换设备找回服务端资料。旧本机照片不会自动同步；重要记录可生成带依据报告。</p><details><summary>连接诊断（排查流式问题）</summary><p>可将这里的信息提供给维护人员；仅含版本、耗时和片段计数，不含密钥与图片。</p><pre>${esc(JSON.stringify(A.diagnostics(), null, 2))}</pre></details>`,
+      `<p>现在可以直接与智麦对话。发送照片后会调用图片理解，再由智能体结合已知情况选择回答、补问、检索知识或调用天气、登记核对工具。不会固定要求你回答发生范围或生育期。</p><p>点击发送才会把本次文字和所选照片交给后端及所配置的文字、图片模型处理。新对话和去除定位信息的压缩照片保存到你的服务端案例，可用浏览器身份及恢复码恢复。提醒支持关联案例复查、天气检查与自愿地区订阅，网页打开时有站内提示，授权后可显示桌面通知。没有配置模型或服务不可用时会明确报错，不会用演示回复代替。</p><p>天气查询需要明确地点和可用接口，失败不会替换成模拟天气。登记资料来自20条公告记录，当前状态与到期日待核实，不能把范围相符当成现在可以施药。知识资料待农技审校，图片与模型回答也不等于确诊。</p><p class="dialog-note">请保存长期记忆页提供的恢复码，以便换设备找回服务端资料。旧本机照片不会自动同步；重要记录可生成带依据报告。</p><details><summary>连接诊断（排查流式问题）</summary><p>可将这里的信息提供给维护人员；仅含版本、耗时和片段计数，不含密钥与图片。</p><pre>${esc(JSON.stringify(A.diagnostics(), null, 2))}</pre></details>`,
     );
   }
   function oldDetail() {

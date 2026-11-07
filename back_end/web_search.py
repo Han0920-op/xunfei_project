@@ -124,7 +124,7 @@ def _public_search(query):
         }
 
 
-def search_web(query):
+def _search_web(query):
     result = _public_search(query)
     if (
         result.get("results")
@@ -196,3 +196,12 @@ def search_web(query):
             "message": "公开搜索未取得相关网页；已实时读取配置中的官方历史文章。发布日期与适用条件须另行核对，不代表全网搜索覆盖或当前预警。",
         }
     return result
+
+
+def search_web(query):
+    # Preserve the actual public query for source cards and explicit manual fallback.
+    public_query = query.strip() if isinstance(query, str) else ""
+    if any(term in public_query for term in ("麦穗", "麦苗", "麦叶")) and "小麦" not in public_query:
+        public_query = "小麦 " + public_query
+    result = _search_web(public_query)
+    return {**result, "query": public_query[:200]}

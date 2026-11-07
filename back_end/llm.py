@@ -25,22 +25,22 @@ def http_error(status):
 
 
 def _url() -> str:
-    return f"{config.SPARK_BASE_URL.rstrip('/')}/chat/completions"
+    return config.text_settings()["base_url"].rstrip("/") + "/chat/completions"
 
 
 def _headers() -> dict:
     return {
-        "Authorization": f"Bearer {config.SPARK_API_PASSWORD}",
+        "Authorization": "Bearer " + config.text_settings()["api_key"],
         "Content-Type": "application/json",
     }
 
 
 def _payload(messages: list[dict], stream: bool = False) -> dict:
     payload = {
-        "model": config.SPARK_MODEL,
+        "model": config.text_settings()["model"],
         "messages": messages,
-        "temperature": config.SPARK_TEMPERATURE,
-        "max_tokens": config.SPARK_MAX_TOKENS,
+        "temperature": config.text_settings()["temperature"],
+        "max_tokens": config.text_settings()["max_tokens"],
     }
     if stream:
         payload["stream"] = True
@@ -48,8 +48,8 @@ def _payload(messages: list[dict], stream: bool = False) -> dict:
 
 
 def chat(messages: list[dict]) -> str:
-    if not config.SPARK_API_PASSWORD:
-        raise LLMError("未配置 SPARK_API_PASSWORD，请在 .env 中填写讯飞星火的 APIPassword。")
+    if not config.text_configured():
+        raise LLMError("文字模型未配置，请检查 LLM_PROVIDER 及对应的 API Key。", "model_not_configured")
 
     try:
         resp = requests.post(
@@ -60,23 +60,25 @@ def chat(messages: list[dict]) -> str:
     except requests.RequestException as exc:
         raise LLMError("模型连接失败", "model_connection_failed") from exc
 
-    if resp.status_code != 200:
-        raise http_error(resp.status_code)
-
-    # 讯飞接口返回 UTF-8，但 Content-Type 未声明 charset 时 requests 可能猜成
-    # ISO-8859-1，导致中文乱码，这里显式指定编码。
-    resp.encoding = "utf-8"
-    data = resp.json()
     try:
-        return data["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, TypeError) as exc:
-        raise LLMError("解析模型响应失败", "model_stream_invalid") from exc
+        if resp.status_code != 200:
+            raise http_error(resp.status_code)
+        resp.encoding = "utf-8"
+        data = resp.json()
+        answer = data["choices"][0]["message"]["content"]
+        if not isinstance(answer, str) or not answer.strip():
+            raise ValueError("empty response")
+        return answer
+    except (KeyError, IndexError, TypeError, ValueError):
+        raise LLMError("解析模型响应失败", "model_stream_invalid") from None
+    finally:
+        resp.close()
 
 
 def chat_stream(messages: list[dict], *, trace=None):
     """流式调用大模型，逐段 yield 增量文本（delta content）。"""
-    if not config.SPARK_API_PASSWORD:
-        raise LLMError("未配置 SPARK_API_PASSWORD，请在 .env 中填写讯飞星火的 APIPassword。")
+    if not config.text_configured():
+        raise LLMError("文字模型未配置，请检查 LLM_PROVIDER 及对应的 API Key。", "model_not_configured")
 
     remaining = getattr(trace, "deadline", float("inf")) - time.monotonic()
     if remaining <= 0:

@@ -9,9 +9,64 @@ SPARK_BASE_URL = os.getenv("SPARK_BASE_URL", "https://spark-api-open.xf-yun.com/
 SPARK_MODEL = os.getenv("SPARK_MODEL", "generalv3.5")
 SPARK_TEMPERATURE = float(os.getenv("SPARK_TEMPERATURE", "0.3"))
 SPARK_MAX_TOKENS = int(os.getenv("SPARK_MAX_TOKENS", "2048"))
+# New installations use DeepSeek; auto preserves existing Spark-only deployments.
+# Explicit selection never falls back to a different provider's credentials.
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "auto").strip().lower()
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
+DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+DEEPSEEK_TEMPERATURE = float(os.getenv("DEEPSEEK_TEMPERATURE", "0.3"))
+DEEPSEEK_MAX_TOKENS = int(os.getenv("DEEPSEEK_MAX_TOKENS", "2048"))
+
+
+def text_provider():
+    if LLM_PROVIDER != "auto":
+        return LLM_PROVIDER
+    return "deepseek" if DEEPSEEK_API_KEY or not SPARK_API_PASSWORD else "spark"
+
+
+def text_settings():
+    provider = text_provider()
+    if provider not in ("deepseek", "spark"):
+        raise ValueError("unsupported text provider")
+    prefix = "DEEPSEEK" if provider == "deepseek" else "SPARK"
+    return {"provider": provider,
+            "api_key": DEEPSEEK_API_KEY if provider == "deepseek" else SPARK_API_PASSWORD,
+            "base_url": globals()[prefix + "_BASE_URL"],
+            "model": globals()[prefix + "_MODEL"],
+            "temperature": globals()[prefix + "_TEMPERATURE"],
+            "max_tokens": globals()[prefix + "_MAX_TOKENS"]}
+
+
+def text_configured():
+    try:
+        return bool(text_settings()["api_key"])
+    except ValueError:
+        return False
+
+
 XFYUN_APP_ID = os.getenv("XFYUN_APP_ID", "")
 XFYUN_API_KEY = os.getenv("XFYUN_API_KEY", "")
 XFYUN_API_SECRET = os.getenv("XFYUN_API_SECRET", "")
+VISION_PROVIDER = os.getenv("VISION_PROVIDER", "auto").strip().lower()
+# DeepSeek-VL2 requires a separately hosted multimodal inference endpoint.
+DEEPSEEK_VISION_BASE_URL = os.getenv("DEEPSEEK_VISION_BASE_URL", "")
+DEEPSEEK_VISION_API_KEY = os.getenv("DEEPSEEK_VISION_API_KEY", "")
+DEEPSEEK_VISION_MODEL = os.getenv("DEEPSEEK_VISION_MODEL", "deepseek-ai/deepseek-vl2-small")
+
+
+def vision_provider():
+    if VISION_PROVIDER != "auto":
+        return VISION_PROVIDER
+    return "deepseek" if DEEPSEEK_VISION_BASE_URL or text_provider() == "deepseek" else "xfyun"
+
+
+def vision_configured():
+    if vision_provider() == "deepseek":
+        return bool(DEEPSEEK_VISION_BASE_URL and DEEPSEEK_VISION_MODEL)
+    return vision_provider() == "xfyun" and all([XFYUN_APP_ID, XFYUN_API_KEY, XFYUN_API_SECRET])
+
+
 VISION_MAX_TOKENS = int(os.getenv("VISION_MAX_TOKENS", "800"))
 SYSTEM_PROMPT = os.getenv(
     "SYSTEM_PROMPT",

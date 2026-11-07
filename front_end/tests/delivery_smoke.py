@@ -49,10 +49,9 @@ class DeliveryBrowserTests(unittest.TestCase):
                         "heading", name="小麦穗部异常排查", exact=True
                     )
                 ).to_be_visible()
-                self.page.locator(".agent-evidence summary").first.click()
-                self.page.get_by_text("本次参考了 1 个网页").click()
+                expect(self.page.get_by_role("region", name="联网搜索相关网页")).to_be_visible()
                 expect(
-                    self.page.get_by_role("link", name="小麦观察资料")
+                    self.page.get_by_role("link", name="小麦观察资料", exact=True)
                 ).to_be_visible()
                 self.overflow()
                 self.page.reload()

@@ -257,7 +257,7 @@ def run_turn(message, history, image_bytes=None, *, metrics=None, trace=None):
     trace.turn_tool_results = []
     trace.deadline = time.monotonic() + 140
     repair_used = False
-    if not config.SPARK_API_PASSWORD:
+    if not config.text_configured():
         yield {"type": "error", "message": "智能体文字服务尚未配置，请联系项目维护人员；输入和照片已保留。"}
         return
     metrics = metrics if metrics is not None else {"model_calls": 0, "upstream_content_chunks": 0}
@@ -276,7 +276,10 @@ def run_turn(message, history, image_bytes=None, *, metrics=None, trace=None):
             trace.log("vision.failed", exc=exc)
             vision_failed = True
             image_note = "本轮图片未能完成识别，不能知道图中是什么；明确告知用户，基于文字帮助，不假装看过。"
-            yield {"type": "vision_result", "status": "unavailable", "content": "这张照片尚未完成识别，不能据此判断图中异常。可重新发送清晰照片，或先描述情况。"}
+            unavailable = "这张照片尚未完成识别，不能据此判断图中异常。可重新发送清晰照片，或先描述情况。"
+            if config.vision_provider() == "deepseek" and not config.vision_configured():
+                unavailable = "尚未配置 DeepSeek-VL2 视觉推理服务，本轮没有识别照片；普通 DeepSeek 文字 API Key 不能代替视觉服务配置。可先描述症状。"
+            yield {"type": "vision_result", "status": "unavailable", "content": unavailable}
     user_content = (message.strip() or "请帮我看看这张照片。") + "\n\n【本轮输入状态】\n" + image_note
     require_checks = bool(image_bytes) or any(
         m.get("role") == "assistant" and "此前该轮图片" in m.get("content", "") for m in history
