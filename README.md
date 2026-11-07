@@ -4,6 +4,8 @@
 
 ## 当前进度（2026-11-07）
 
+若模型列表已成功但聊天失败，双击 `check_chat.bat` 测试真实生成（最多两次，可能产生费用），检查流式与普通请求及答案解析；保留 DeepSeek，先依据结果定位。见[聊天接口排查](docs/model-connection-check.md)。
+
 若文字模型连接失败，可双击 `check_model.bat`：读取当前配置，仅查询模型列表，区分代理、HTTPS 证书、鉴权与模型名称问题，不生成回答、不输出密钥。模型 ID 请结合 `available_models` 与供应商控制台核对。
 
 可选[通义千问文字＋视觉组合](docs/model-connection-check.md)，只需百炼同一服务地域的 Key，文字和图片分别选模型。已增加 DeepSeek 文字接入、独立 VL2 图片接口适配，以及直接可见的网页来源卡片。官方文字 Key 可以启用文字对话；VL2 图片仍需独立视觉推理服务。配置与验证边界见[DeepSeek 与网页来源说明](docs/deepseek-and-web-sources-2026-11-07.md)。

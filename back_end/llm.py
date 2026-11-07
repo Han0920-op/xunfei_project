@@ -2,6 +2,7 @@ import json
 import time
 
 import requests
+from urllib3.exceptions import ConnectTimeoutError, ReadTimeoutError
 
 import config
 
@@ -15,13 +16,29 @@ class LLMError(Exception):
 
 
 def http_error(status):
-    code = {401: "model_auth_failed", 403: "model_auth_failed",
+    code = {401: "model_auth_failed", 402: "model_payment_required", 403: "model_auth_failed",
             404: "model_endpoint_invalid", 400: "model_request_invalid",
             422: "model_request_invalid", 429: "model_rate_limited"}.get(
                 status, "model_unavailable" if status >= 500 else "model_request_failed")
     error = LLMError(f"模型接口 HTTP {status}", code)
     error.status_code = status
     return error
+
+
+def _has_network_timeout(exc):
+    # requests can wrap urllib3 read timeouts in ConnectionError. Never inspect
+    # exception text, which may contain signed URLs or proxy credentials.
+    pending, seen = [exc], set()
+    while pending and len(seen) < 12:
+        item = pending.pop()
+        if id(item) in seen:
+            continue
+        seen.add(id(item))
+        if isinstance(item, (requests.Timeout, ConnectTimeoutError, ReadTimeoutError)):
+            return True
+        pending.extend(arg for arg in item.args if isinstance(arg, BaseException))
+        pending.extend(e for e in (item.__cause__, item.__context__) if isinstance(e, BaseException))
+    return False
 
 
 def connection_error(exc):
@@ -31,7 +48,7 @@ def connection_error(exc):
         code = "model_tls_failed"
     elif isinstance(exc, (requests.exceptions.InvalidURL, requests.exceptions.MissingSchema, requests.exceptions.InvalidSchema)):
         code = "model_endpoint_invalid"
-    elif isinstance(exc, requests.Timeout):
+    elif _has_network_timeout(exc):
         code = "model_timeout"
     else:
         code = "model_connection_failed"
@@ -204,6 +221,8 @@ def _stream_attempt(messages: list[dict], *, trace=None):
     except requests.Timeout as exc:
         raise LLMError("模型响应超时", "model_timeout") from exc
     except requests.RequestException as exc:
+        if _has_network_timeout(exc):
+            raise LLMError("模型响应超时", "model_timeout") from exc
         raise LLMError("模型流式响应中断", "model_stream_interrupted") from exc
     finally:
         resp.close()

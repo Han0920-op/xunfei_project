@@ -1,5 +1,6 @@
 """Allowlisted public errors; never include provider bodies or signed URLs."""
 MESSAGES = {
+    "model_payment_required": "文字模型接口要求付费或补充余额，请检查所选服务的账户余额及计费状态。",
     "model_proxy_failed": "连接文字模型时代理连接失败，请检查运行后端电脑的代理是否可用及配置是否正确。",
     "model_tls_failed": "连接文字模型时 HTTPS 证书校验失败，请检查系统时间、证书或代理证书；不要关闭证书校验。",
     "model_not_configured": "文字模型未配置，请填写所选服务的 API Key 后重启。",
