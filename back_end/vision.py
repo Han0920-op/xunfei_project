@@ -83,25 +83,30 @@ def gen_params(app_id, question, image_base64):
 
 def understand_image(image_bytes: bytes, question: str) -> str:
     provider = config.vision_provider()
-    if provider == "deepseek":
-        return _deepseek_image(image_bytes, question)
+    if provider in ("deepseek", "qwen"):
+        return _compatible_image(image_bytes, question)
     if provider != "xfyun":
         raise VisionError("图片模型配置不正确，请检查 VISION_PROVIDER。")
     return _xfyun_image(image_bytes, question)
 
 
-def _deepseek_image(image_bytes: bytes, question: str) -> str:
-    base = config.DEEPSEEK_VISION_BASE_URL.rstrip("/")
+def _compatible_image(image_bytes: bytes, question: str) -> str:
+    qwen = config.vision_provider() == "qwen"
+    base = (config.QWEN_BASE_URL if qwen else config.DEEPSEEK_VISION_BASE_URL).rstrip("/")
+    key = config.DASHSCOPE_API_KEY if qwen else config.DEEPSEEK_VISION_API_KEY
+    model = config.QWEN_VISION_MODEL if qwen else config.DEEPSEEK_VISION_MODEL
+    if qwen and not key:
+        raise VisionError("请配置百炼 DASHSCOPE_API_KEY。")
     parsed = urlparse(base)
     if not base or parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
-        raise VisionError("请配置支持 DeepSeek-VL2 的图片推理服务地址。")
-    if parsed.hostname in ("api.deepseek.com", "api.deepseek.cn") or config.DEEPSEEK_VISION_MODEL in ("deepseek-chat", "deepseek-reasoner"):
+        raise VisionError("请配置所选图片模型的推理服务地址。")
+    if parsed.hostname in ("api.deepseek.com", "api.deepseek.cn") or model in ("deepseek-chat", "deepseek-reasoner"):
         raise VisionError("普通 DeepSeek 文字接口不能作为 VL2 图片推理服务，请配置独立视觉端点。")
     mime = "image/png" if image_bytes.startswith(b"\x89PNG") else "image/webp" if image_bytes.startswith(b"RIFF") and image_bytes[8:12] == b"WEBP" else "image/jpeg"
     headers = {"Content-Type": "application/json"}
-    if config.DEEPSEEK_VISION_API_KEY:
-        headers["Authorization"] = "Bearer " + config.DEEPSEEK_VISION_API_KEY
-    body = {"model": config.DEEPSEEK_VISION_MODEL, "stream": False,
+    if key:
+        headers["Authorization"] = "Bearer " + key
+    body = {"model": model, "stream": False,
             "max_tokens": min(max(config.VISION_MAX_TOKENS, 200), 2028),
             "temperature": 0.2,
             "messages": [{"role": "user", "content": [
@@ -112,7 +117,7 @@ def _deepseek_image(image_bytes: bytes, question: str) -> str:
         with requests.post(base + "/chat/completions", json=body, headers=headers,
                            timeout=(5, 40), stream=True, allow_redirects=False) as response:
             if response.status_code != 200:
-                raise VisionError("DeepSeek 视觉服务未完成请求，请检查服务地址、模型与授权。")
+                raise VisionError("视觉服务未完成请求，请检查服务地址、模型与授权。")
             parts, size, deadline = [], 0, time.monotonic() + 45
             for chunk in response.iter_content(16384):
                 size += len(chunk)
@@ -130,7 +135,7 @@ def _deepseek_image(image_bytes: bytes, question: str) -> str:
     except VisionError:
         raise
     except Exception:
-        raise VisionError("DeepSeek 图片理解暂时无法完成，请检查视觉服务配置或稍后重试。") from None
+        raise VisionError("图片理解暂时无法完成，请检查视觉服务配置或稍后重试。") from None
 
 
 def _xfyun_image(image_bytes: bytes, question: str) -> str:

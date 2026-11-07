@@ -11,6 +11,11 @@ def frame(delta=None, **kwargs):
 
 
 class LLMStreamTests(unittest.TestCase):
+    def setUp(self):
+        p = patch.object(config, "MODEL_CONNECT_RETRIES", 0)
+        p.start()
+        self.addCleanup(p.stop)
+
     def test_http_errors_classified_without_exposing_provider_body(self):
         for status, code in [(401, 'model_auth_failed'), (403, 'model_auth_failed'), (404, 'model_endpoint_invalid'), (429, 'model_rate_limited'), (400, 'model_request_invalid'), (503, 'model_unavailable')]:
             response = self.response([], status)

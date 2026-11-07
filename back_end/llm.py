@@ -24,6 +24,20 @@ def http_error(status):
     return error
 
 
+def connection_error(exc):
+    if isinstance(exc, requests.exceptions.ProxyError):
+        code = "model_proxy_failed"
+    elif isinstance(exc, requests.exceptions.SSLError):
+        code = "model_tls_failed"
+    elif isinstance(exc, (requests.exceptions.InvalidURL, requests.exceptions.MissingSchema, requests.exceptions.InvalidSchema)):
+        code = "model_endpoint_invalid"
+    elif isinstance(exc, requests.Timeout):
+        code = "model_timeout"
+    else:
+        code = "model_connection_failed"
+    return LLMError("模型连接失败", code)
+
+
 def _url() -> str:
     return config.text_settings()["base_url"].rstrip("/") + "/chat/completions"
 
@@ -58,7 +72,7 @@ def chat(messages: list[dict]) -> str:
     except requests.Timeout as exc:
         raise LLMError("模型连接超时", "model_timeout") from exc
     except requests.RequestException as exc:
-        raise LLMError("模型连接失败", "model_connection_failed") from exc
+        raise connection_error(exc) from exc
 
     try:
         if resp.status_code != 200:
@@ -76,6 +90,30 @@ def chat(messages: list[dict]) -> str:
 
 
 def chat_stream(messages: list[dict], *, trace=None):
+    """Retry one transient failure only before any content has been delivered."""
+    emitted = False
+    for attempt in range(config.MODEL_CONNECT_RETRIES + 1):
+        try:
+            stream = _stream_attempt(messages, trace=trace)
+            try:
+                for chunk in stream:
+                    emitted = True
+                    yield chunk
+            finally:
+                stream.close()
+            return
+        except LLMError as exc:
+            delay = getattr(exc, "retry_after", 0.3)
+            can_retry = exc.code in ("model_unavailable", "model_rate_limited", "model_connection_failed", "model_timeout")
+            remaining = getattr(trace, "deadline", float("inf")) - time.monotonic()
+            if emitted or attempt >= config.MODEL_CONNECT_RETRIES or not can_retry or delay is None or delay > 2 or remaining < delay + 8:
+                raise
+            if trace:
+                trace.log("model.retry_before_content", exc=exc)
+            time.sleep(delay)
+
+
+def _stream_attempt(messages: list[dict], *, trace=None):
     """流式调用大模型，逐段 yield 增量文本（delta content）。"""
     if not config.text_configured():
         raise LLMError("文字模型未配置，请检查 LLM_PROVIDER 及对应的 API Key。", "model_not_configured")
@@ -91,7 +129,7 @@ def chat_stream(messages: list[dict], *, trace=None):
     except requests.Timeout as exc:
         raise LLMError("模型连接超时", "model_timeout") from exc
     except requests.RequestException as exc:
-        raise LLMError("模型连接失败", "model_connection_failed") from exc
+        raise connection_error(exc) from exc
 
     # 上游是 text/event-stream 且不带 charset，requests 会默认按 ISO-8859-1 解码，
     # 中文就变成「ä½ å¥½」式乱码。这里直接读原始字节，显式用 UTF-8 解码。
@@ -102,7 +140,12 @@ def chat_stream(messages: list[dict], *, trace=None):
         if trace:
             trace.log("model.http_response", status_code=resp.status_code)
         if resp.status_code != 200:
-            raise http_error(resp.status_code)
+            error = http_error(resp.status_code)
+            retry_after = resp.headers.get("Retry-After")
+            if isinstance(retry_after, str) and retry_after:
+                try: error.retry_after = max(0, float(retry_after))
+                except ValueError: error.retry_after = None
+            raise error
         # requests defaults to buffering 512 bytes, which delays small SSE events.
         for raw in resp.iter_lines(chunk_size=1, decode_unicode=False):
             if time.monotonic() > deadline:

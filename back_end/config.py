@@ -18,6 +18,14 @@ DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
 DEEPSEEK_TEMPERATURE = float(os.getenv("DEEPSEEK_TEMPERATURE", "0.3"))
 DEEPSEEK_MAX_TOKENS = int(os.getenv("DEEPSEEK_MAX_TOKENS", "2048"))
 
+DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY", "")
+QWEN_BASE_URL = os.getenv("QWEN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+QWEN_MODEL = os.getenv("QWEN_MODEL", "qwen-plus")
+QWEN_VISION_MODEL = os.getenv("QWEN_VISION_MODEL", "qwen-vl-plus")
+QWEN_TEMPERATURE = float(os.getenv("QWEN_TEMPERATURE", "0.3"))
+QWEN_MAX_TOKENS = int(os.getenv("QWEN_MAX_TOKENS", "2048"))
+MODEL_CONNECT_RETRIES = min(max(int(os.getenv("MODEL_CONNECT_RETRIES", "1")), 0), 1)
+
 
 def text_provider():
     if LLM_PROVIDER != "auto":
@@ -27,11 +35,11 @@ def text_provider():
 
 def text_settings():
     provider = text_provider()
-    if provider not in ("deepseek", "spark"):
+    if provider not in ("deepseek", "spark", "qwen"):
         raise ValueError("unsupported text provider")
-    prefix = "DEEPSEEK" if provider == "deepseek" else "SPARK"
+    prefix = {"deepseek":"DEEPSEEK", "spark":"SPARK", "qwen":"QWEN"}[provider]
     return {"provider": provider,
-            "api_key": DEEPSEEK_API_KEY if provider == "deepseek" else SPARK_API_PASSWORD,
+            "api_key": {"deepseek": DEEPSEEK_API_KEY, "spark": SPARK_API_PASSWORD, "qwen": DASHSCOPE_API_KEY}[provider],
             "base_url": globals()[prefix + "_BASE_URL"],
             "model": globals()[prefix + "_MODEL"],
             "temperature": globals()[prefix + "_TEMPERATURE"],
@@ -58,10 +66,14 @@ DEEPSEEK_VISION_MODEL = os.getenv("DEEPSEEK_VISION_MODEL", "deepseek-ai/deepseek
 def vision_provider():
     if VISION_PROVIDER != "auto":
         return VISION_PROVIDER
+    if text_provider() == "qwen":
+        return "qwen"
     return "deepseek" if DEEPSEEK_VISION_BASE_URL or text_provider() == "deepseek" else "xfyun"
 
 
 def vision_configured():
+    if vision_provider() == "qwen":
+        return bool(DASHSCOPE_API_KEY and QWEN_BASE_URL and QWEN_VISION_MODEL)
     if vision_provider() == "deepseek":
         return bool(DEEPSEEK_VISION_BASE_URL and DEEPSEEK_VISION_MODEL)
     return vision_provider() == "xfyun" and all([XFYUN_APP_ID, XFYUN_API_KEY, XFYUN_API_SECRET])

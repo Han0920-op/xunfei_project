@@ -4,7 +4,9 @@
 
 ## 当前进度（2026-11-07）
 
-已增加 DeepSeek 文字接入、独立 VL2 图片接口适配，以及直接可见的网页来源卡片。官方文字 Key 可以启用文字对话；VL2 图片仍需独立视觉推理服务。配置与验证边界见[DeepSeek 与网页来源说明](docs/deepseek-and-web-sources-2026-11-07.md)。
+若文字模型连接失败，可双击 `check_model.bat`：读取当前配置，仅查询模型列表，区分代理、HTTPS 证书、鉴权与模型名称问题，不生成回答、不输出密钥。模型 ID 请结合 `available_models` 与供应商控制台核对。
+
+可选[通义千问文字＋视觉组合](docs/model-connection-check.md)，只需百炼同一服务地域的 Key，文字和图片分别选模型。已增加 DeepSeek 文字接入、独立 VL2 图片接口适配，以及直接可见的网页来源卡片。官方文字 Key 可以启用文字对话；VL2 图片仍需独立视觉推理服务。配置与验证边界见[DeepSeek 与网页来源说明](docs/deepseek-and-web-sources-2026-11-07.md)。
 
 站内切换保留聊天：可在等待回复时查看农药库、提醒或记录，再返回继续交流，草稿与照片保留。实现范围和验证见[聊天导航改进](docs/chat-navigation-2026-11-07.md)。
 
@@ -42,7 +44,7 @@ cd back_end
 uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
-打开 `http://127.0.0.1:8000/index.html`。前后端同源。先按 `back_end/.env.example` 配置文字、图片及天气服务（请勿覆盖已有 `.env` 或提交密钥）。直接登记／知识接口不需要模型密钥，自由对话需要所选文字模型服务的密钥（推荐 DeepSeek）。若使用仓库根目录 `.venv`，请不要将其提交。
+打开 `http://127.0.0.1:8000/index.html`。前后端同源。先按 `back_end/.env.example` 配置文字、图片及天气服务（请勿覆盖已有 `.env` 或提交密钥）。直接登记／知识接口不需要模型密钥，自由对话需要所选文字模型服务的密钥（DeepSeek 或通义千问，按自己的服务授权配置）。若使用仓库根目录 `.venv`，请不要将其提交。
 
 - [最新开发计划：我的农药库、定时任务与持续复查](docs/development-roadmap.md)（本轮交付与验收状态）
 - [自由对话智能体、图片和天气接入](docs/conversational-agent.md)

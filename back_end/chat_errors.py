@@ -1,5 +1,7 @@
 """Allowlisted public errors; never include provider bodies or signed URLs."""
 MESSAGES = {
+    "model_proxy_failed": "连接文字模型时代理连接失败，请检查运行后端电脑的代理是否可用及配置是否正确。",
+    "model_tls_failed": "连接文字模型时 HTTPS 证书校验失败，请检查系统时间、证书或代理证书；不要关闭证书校验。",
     "model_not_configured": "文字模型未配置，请填写所选服务的 API Key 后重启。",
     "model_auth_failed": "文字模型服务鉴权失败，请检查 API Key 是否有效、是否开通所选模型。",
     "model_endpoint_invalid": "文字模型服务接口地址未找到，请检查所选服务的 BASE_URL，不要重复填写 /chat/completions。",

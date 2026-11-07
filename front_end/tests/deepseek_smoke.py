@@ -15,13 +15,19 @@ class DeepSeekBrowserTests(unittest.TestCase):
     overflow = helper.CaseworkBrowserTests.overflow
 
     def test_photo_decision_search_answer_and_open_source(self):
+        self.check_photo_chain()
+
+    def test_qwen_photo_tool_and_answer_retry_without_repeating_tool(self):
+        self.check_photo_chain(qwen=True)
+
+    def check_photo_chain(self, qwen=False):
         calls = []
 
         def post(url, **kwargs):
             calls.append((url, kwargs))
             r = MagicMock(status_code=200)
             r.__enter__.return_value = r
-            if "vision.example" in url:
+            if "vision.example" in url or kwargs["json"]["model"] == "qwen-vl-plus":
                 r.iter_content.return_value = [
                     json.dumps(
                         {
@@ -37,7 +43,11 @@ class DeepSeekBrowserTests(unittest.TestCase):
                     ).encode()
                 ]
             else:
-                n = sum("api.deepseek.com" in c[0] for c in calls)
+                n = sum(bool(c[1]["json"].get("stream")) for c in calls)
+                if qwen and n == 2:
+                    r.status_code = 503
+                    r.headers = {}
+                    return r
                 content = (
                     json.dumps(
                         {
@@ -72,14 +82,18 @@ class DeepSeekBrowserTests(unittest.TestCase):
         }
         with patch.multiple(
             config,
-            LLM_PROVIDER="deepseek",
+            LLM_PROVIDER="qwen" if qwen else "deepseek",
+            DASHSCOPE_API_KEY="qwen-test",
+            QWEN_MODEL="qwen-plus",
+            QWEN_VISION_MODEL="qwen-vl-plus",
+            MODEL_CONNECT_RETRIES=1,
             DEEPSEEK_API_KEY="text-test",
-            VISION_PROVIDER="deepseek",
+            VISION_PROVIDER="qwen" if qwen else "deepseek",
             DEEPSEEK_VISION_BASE_URL="https://vision.example/v1",
             DEEPSEEK_VISION_API_KEY="vision-test",
         ), patch.object(llm.requests, "post", side_effect=post), patch.object(
             dialogue.tools.TOOLS["search_web"], "func", return_value=json.dumps(result)
-        ):
+        ) as search:
             self.page.goto(self.base + "/index.html")
             self.page.locator("#photoInput").set_input_files(
                 str(Path(__file__).resolve().parents[1] / "assets/wheat-green.jpg")
@@ -94,12 +108,15 @@ class DeepSeekBrowserTests(unittest.TestCase):
             ).to_be_visible()
             expect(card).to_contain_text("2026-04-20")
             self.overflow()
-            self.assertEqual(len(calls), 3)
+            self.assertEqual(len(calls), 4 if qwen else 3)
+            search.assert_called_once()
             self.assertEqual(
-                calls[0][1]["headers"]["Authorization"], "Bearer vision-test"
+                calls[0][1]["headers"]["Authorization"],
+                "Bearer qwen-test" if qwen else "Bearer vision-test",
             )
             self.assertEqual(
-                calls[1][1]["headers"]["Authorization"], "Bearer text-test"
+                calls[1][1]["headers"]["Authorization"],
+                "Bearer qwen-test" if qwen else "Bearer text-test",
             )
             self.assertIn("可见麦穗局部发白", str(calls[1][1]["json"]["messages"]))
             self.page.reload()
@@ -109,7 +126,8 @@ class DeepSeekBrowserTests(unittest.TestCase):
             self.context.route(
                 "https://www.moa.gov.cn/test-zhimai",
                 lambda route: route.fulfill(
-                    body='<meta charset="utf-8"><h1>测试原文</h1>', content_type="text/html; charset=utf-8"
+                    body='<meta charset="utf-8"><h1>测试原文</h1>',
+                    content_type="text/html; charset=utf-8",
                 ),
             )
             with self.page.expect_popup() as popup:
