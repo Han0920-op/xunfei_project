@@ -3,7 +3,7 @@
 (() => {
   "use strict";
   const S = window.FarmerStore;
-  const CLIENT_VERSION = "2026.11.08.search";
+  const CLIENT_VERSION = "2026.11.08.inventory";
   const STREAM_PROTOCOL = "zhimai-chat-sse-v2";
   let lastTransport = null;
   const toolNames = {
@@ -293,10 +293,19 @@
           if (
             event.tool === "save_my_medicines" &&
             event.result?.status === "saved"
-          )
+          ) {
             window.FarmerUI?.toast(
               "手里的药已记录到“我的农药库”，可随时编辑或删除。",
             );
+            try {
+              localStorage.setItem(
+                "zhimai:medicines-updated",
+                String(Date.now()),
+              );
+            } catch (_) {
+              /* A disabled local store must not fail a saved turn. */
+            }
+          }
           progress(
             ["unavailable", "error"].includes(event.result?.status)
               ? `${toolNames[event.tool] || "工具"}未能完成，正在返回处理结果…`

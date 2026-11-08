@@ -80,7 +80,7 @@
   function card(x) {
     if (tab === "notifications")
       return `<article class="personal-card message-card"><div class="card-top"><span class="card-symbol">${icon("leaf")}</span><span class="personal-badge ${x.weather?.status === "ok" ? "" : "muted-badge"}">${x.task_type === "weather_alert" ? weatherLabel(x) : x.task_type === "regional" ? "区域巡查提示" : x.task_type === "followup" ? "案例复查到时" : x.task_type === "reminder" ? "提醒已到时间" : x.weather?.status === "ok" ? "天气已更新" : "天气暂不可用"}</span></div><h2>${esc(x.name)}</h2><p class="message-text">${esc(x.message)}</p>${x.task_type === "weather_alert" ? `<p class="personal-note">${esc(x.warning?.publisher || "")} · 发布 ${esc(timeLabel(x.warning?.issued_at))} · 有效至 ${esc(timeLabel(x.warning?.expires_at))}</p><ul>${(x.advice || []).map((t) => `<li>${esc(t)}</li>`).join("")}</ul><a class="text-button" href="weather-alerts.html">查看天气防护建议</a>` : ""}${x.source ? `<p class="personal-note">来源：${esc(x.source.title)} · ${esc(x.source.published_on)} · 适用：${esc((x.source.regions || []).join("、"))}</p>` : ""}<small class="card-meta">${esc(timeLabel(x.created_at))} · 北京时间</small><div class="card-actions"><a href="${x.case_id ? "memory.html?case=" + encodeURIComponent(x.case_id) : "index.html"}" class="text-button">回到智麦继续复查 ${icon("arrow")}</a>${!x.read ? `<button class="text-button" data-read="${esc(x.id)}">标为已读</button>` : `<small>已读</small>`}<button class="text-button subtle-danger" data-remove="${esc(x.id)}">删除消息</button></div></article>`;
-    return `<article class="personal-card"><div class="card-top"><span class="card-symbol">${icon(medicine ? "book" : "clock")}</span><span class="personal-badge ${medicine ? "amber-badge" : x.enabled ? "" : "muted-badge"}">${medicine ? "登记待核对" : x._completed_at ? "已提醒" : x.enabled ? "已启用" : "已暂停"}</span></div>${medicine ? `<h2>${esc(x.name)}</h2><p class="registration-number">${esc(x.number || "登记证号待补充")}</p>` : `<div class="task-clock">${esc(x.recurrence === "once" ? timeLabel(x.run_at) : x.time)}<small>${x.recurrence === "once" ? "仅一次" : "每天"} · 北京时间</small></div><h2>${esc(x.name)}</h2><p class="task-location">${esc(x.task_type === "followup" ? "案例复查" : x.task_type === "reminder" ? "普通提醒" : x.location)} · ${x.recurrence === "once" ? "仅一次" : "每天 " + esc(x.time)} · ${x._completed_at ? "已提醒" : x.enabled ? "已启用" : "已暂停"}</p>`}<p class="personal-note">${esc(x.notes || (medicine ? "可以在编辑中补充成分、保质期或使用备注。" : "到时查天气，提醒你观察麦苗变化。"))}</p>${!medicine && x.enabled ? `<small class="card-meta">下次检查：${esc(timeLabel(x.next))}</small>` : ""}<div class="card-actions">${x.case_id ? `<a href="memory.html?case=${encodeURIComponent(x.case_id)}">查看关联案例</a>` : ""}${medicine ? `<a class="text-button card-chat" href="index.html?medicine=${encodeURIComponent(x.id)}">带着这瓶药问智麦 ${icon("arrow")}</a>` : ""}<div><button class="text-button" data-edit="${esc(x.id)}">编辑</button><button class="text-button subtle-danger" data-remove="${esc(x.id)}">删除</button></div></div></article>`;
+    return `<article class="personal-card"><div class="card-top"><span class="card-symbol">${icon(medicine ? "book" : "clock")}</span><span class="personal-badge ${medicine ? "amber-badge" : x.enabled ? "" : "muted-badge"}">${medicine ? "已保存 · 登记待核对" : x._completed_at ? "已提醒" : x.enabled ? "已启用" : "已暂停"}</span></div>${medicine ? `<h2>${esc(x.name)}</h2><p class="registration-number">${esc(x.number || "登记证号待补充")}</p>` : `<div class="task-clock">${esc(x.recurrence === "once" ? timeLabel(x.run_at) : x.time)}<small>${x.recurrence === "once" ? "仅一次" : "每天"} · 北京时间</small></div><h2>${esc(x.name)}</h2><p class="task-location">${esc(x.task_type === "followup" ? "案例复查" : x.task_type === "reminder" ? "普通提醒" : x.location)} · ${x.recurrence === "once" ? "仅一次" : "每天 " + esc(x.time)} · ${x._completed_at ? "已提醒" : x.enabled ? "已启用" : "已暂停"}</p>`}<p class="personal-note">${esc(x.notes || (medicine ? "可以在编辑中补充成分、保质期或使用备注。" : "到时查天气，提醒你观察麦苗变化。"))}</p>${!medicine && x.enabled ? `<small class="card-meta">下次检查：${esc(timeLabel(x.next))}</small>` : ""}<div class="card-actions">${x.case_id ? `<a href="memory.html?case=${encodeURIComponent(x.case_id)}">查看关联案例</a>` : ""}${medicine ? `<a class="text-button card-chat" href="index.html?medicine=${encodeURIComponent(x.id)}">带着这瓶药问智麦 ${icon("arrow")}</a>` : ""}<div><button class="text-button" data-edit="${esc(x.id)}">编辑</button><button class="text-button subtle-danger" data-remove="${esc(x.id)}">删除</button></div></div></article>`;
   }
   function list() {
     const data = entries.filter(
@@ -104,7 +104,7 @@
     if (version !== revision) return;
     entries = items;
     document.title = (medicine ? "我的农药库" : "提醒") + " · 智麦";
-    root.innerHTML = `<div class="personal-heading"><div><span class="page-eyebrow">${icon(medicine ? "book" : "clock")}${medicine ? "手里的药，心里有数" : "约好时间，接着关心麦田"}</span><h1>${medicine ? "我的农药库" : "提醒"}</h1><p>${medicine ? "记下已有的农药，核对时少找一次包装。" : "普通提醒、复查事项和天气检查，约好时间自动提示。"}</p></div><button class="button primary" data-new>${icon("plus")}${medicine ? "新增农药" : "新增提醒"}</button></div><p class="error" id="personalError" role="alert"></p>${medicine ? `<div class="personal-banner">${icon("leaf")}<p>保存你确认的药品资料，智麦可以在对话中按需读取。<small>存入农药库不代表适用，使用前仍需结合登记范围和实际问题核对。</small></p><a href="index.html">问智麦 ${icon("arrow")}</a></div><div class="personal-toolbar"><h2>我保存的农药 <span id="listCount"></span></h2><label class="personal-search">${icon("search")}<input id="medicineSearch" type="search" placeholder="搜索名称或登记证号" aria-label="搜索农药" value="${esc(query)}"></label></div>` : `<div class="reminder-tabs" role="group" aria-label="提醒内容"><button class="${tab === "tasks" ? "selected" : ""}" data-tab="tasks">提醒计划</button><button class="${tab === "notifications" ? "selected" : ""}" data-tab="notifications">检查消息</button><a href="intelligence.html">地区植保订阅</a><a href="weather-alerts.html">天气预警</a></div><div class="notification-strip">${icon("clock")}<div><strong>${esc(notificationStatus())}</strong><small>智麦任意页面到点会弹出站内提醒；后端需保持运行。</small></div><button class="button secondary" id="notify">开启桌面通知</button><button class="button secondary" id="testReminder">测试提醒</button></div>`}<section id="personalList" aria-label="${medicine ? "农药列表" : tab === "tasks" ? "天气检查计划" : "检查消息"}"></section><details class="personal-footnote"><summary>资料保存与提醒说明</summary><p>药品和任务保存在服务端，通过当前浏览器的个人凭据访问，更换浏览器不会自动同步。天气任务需要电脑开机且后端运行；重启后补查一次错过的检查。桌面通知需要授权并保持本页打开，尚不支持关闭网页后的推送。</p></details>`;
+    root.innerHTML = `<div class="personal-heading"><div><span class="page-eyebrow">${icon(medicine ? "book" : "clock")}${medicine ? "手里的药，心里有数" : "约好时间，接着关心麦田"}</span><h1>${medicine ? "我的农药库" : "提醒"}</h1><p>${medicine ? "记下已有的农药，核对时少找一次包装。" : "普通提醒、复查事项和天气检查，约好时间自动提示。"}</p></div><button class="button primary" data-new>${icon("plus")}${medicine ? "新增农药" : "新增提醒"}</button></div><p class="error" id="personalError" role="alert"></p>${medicine ? `<div class="personal-banner">${icon("leaf")}<p>保存你确认的药品资料，智麦可以在对话中按需读取。<small>“登记待核对”表示当前登记有效状态和用途尚未核实，不影响资料已经保存。使用前仍需结合登记范围和实际问题核对。</small></p><a href="index.html">问智麦 ${icon("arrow")}</a></div><div class="personal-toolbar"><h2>我保存的农药 <span id="listCount"></span></h2><label class="personal-search">${icon("search")}<input id="medicineSearch" type="search" placeholder="搜索名称或登记证号" aria-label="搜索农药" value="${esc(query)}"></label></div>` : `<div class="reminder-tabs" role="group" aria-label="提醒内容"><button class="${tab === "tasks" ? "selected" : ""}" data-tab="tasks">提醒计划</button><button class="${tab === "notifications" ? "selected" : ""}" data-tab="notifications">检查消息</button><a href="intelligence.html">地区植保订阅</a><a href="weather-alerts.html">天气预警</a></div><div class="notification-strip">${icon("clock")}<div><strong>${esc(notificationStatus())}</strong><small>智麦任意页面到点会弹出站内提醒；后端需保持运行。</small></div><button class="button secondary" id="notify">开启桌面通知</button><button class="button secondary" id="testReminder">测试提醒</button></div>`}<section id="personalList" aria-label="${medicine ? "农药列表" : tab === "tasks" ? "天气检查计划" : "检查消息"}"></section><details class="personal-footnote"><summary>资料保存与提醒说明</summary><p>药品和任务保存在服务端，通过当前浏览器的个人凭据访问，更换浏览器不会自动同步。天气任务需要电脑开机且后端运行；重启后补查一次错过的检查。桌面通知需要授权并保持本页打开，尚不支持关闭网页后的推送。</p></details>`;
     list();
     if (!medicine) {
       const strip = document.querySelector(".notification-strip");
@@ -286,6 +286,30 @@
   } catch (e) {
     fail(e);
   }
+  async function refreshMedicines() {
+    if (
+      !medicine ||
+      !document.getElementById("personalList") ||
+      document.getElementById("dialog")?.open
+    )
+      return;
+    const version = ++revision;
+    const items = await api("medicines");
+    if (version !== revision || document.getElementById("dialog")?.open) return;
+    entries = items;
+    list();
+  }
+  window.addEventListener("storage", (event) => {
+    if (event.key === "zhimai:medicines-updated")
+      refreshMedicines().catch(fail);
+  });
+  window.addEventListener("focus", () => refreshMedicines().catch(fail));
+  window.addEventListener("zhimai:resume", () =>
+    refreshMedicines().catch(fail),
+  );
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) refreshMedicines().catch(fail);
+  });
   window.addEventListener("reminder-inbox", () => {
     if (!medicine && !document.getElementById("dialog").open)
       render().catch(fail);

@@ -59,7 +59,9 @@ class ChatInventoryBrowserTests(unittest.TestCase):
             expect(receipt.last).to_contain_text("已有记录，未重复添加")
             self.assertEqual(len(personal.listing(self.who, "medicines")), 2)
             receipt.last.get_by_role("link", name="查看、编辑我的农药库").click()
-            inventory = self.page.frame_locator("iframe.app-navigation-view:not([hidden])")
+            inventory = self.page.frame_locator(
+                "iframe.app-navigation-view:not([hidden])"
+            )
             expect(inventory.locator(".personal-card")).to_have_count(2)
             inventory.locator(".personal-card").filter(
                 has=inventory.get_by_role("heading", name="多菌灵", exact=True)
@@ -103,6 +105,46 @@ class ChatInventoryBrowserTests(unittest.TestCase):
             expect(
                 self.page.get_by_role("heading", name="多菌灵", exact=True)
             ).to_be_visible()
+
+    def test_explicit_registered_medicine_saves_and_refreshes_already_open_inventory(
+        self,
+    ):
+        response = self.context.request.put(
+            self.base + "/api/personal/medicines/existing",
+            headers={"X-Zhimai-Personal": "1"},
+            data={"name": "杀虫气雾剂", "number": "WP20120033"},
+        )
+        self.assertTrue(response.ok)
+        inventory = self.context.new_page()
+        inventory.goto(self.base + "/personal.html?tab=medicines")
+        expect(inventory.locator(".personal-card")).to_have_count(1)
+        self.page.goto(self.base + "/index.html")
+        text = "我手里有贝莱斯芽孢杆菌C17271，包装登记证号是PD20250010。请把它记到我的农药库里"
+        with patch.object(config, "SPARK_API_PASSWORD", "test"), patch.object(
+            dialogue.llm, "chat_stream"
+        ) as model:
+            self.send(text)
+            receipt = self.page.get_by_role("region", name="农药入库结果")
+            expect(receipt).to_contain_text("贝莱斯芽孢杆菌C17271")
+            expect(receipt).to_contain_text("PD20250010")
+            expect(inventory.locator(".personal-card")).to_have_count(2)
+            card = inventory.locator(".personal-card").filter(
+                has=inventory.get_by_role(
+                    "heading", name="贝莱斯芽孢杆菌C17271", exact=True
+                )
+            )
+            expect(card).to_contain_text("已保存 · 登记待核对")
+            expect(card).to_contain_text("PD20250010")
+            self.send(text)
+            expect(receipt.last).to_contain_text("未重复添加")
+            expect(inventory.locator(".personal-card")).to_have_count(2)
+            model.assert_not_called()
+            self.page.reload()
+            expect(
+                self.page.get_by_role("region", name="农药入库结果").last
+            ).to_contain_text("PD20250010")
+            self.overflow()
+        inventory.close()
 
 
 if __name__ == "__main__":

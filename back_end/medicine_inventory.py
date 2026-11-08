@@ -6,7 +6,7 @@ import secrets
 import unicodedata
 
 import personal
-from pesticides import number_info
+from pesticides import number_info, NUMBER
 
 OWNERSHIP = re.compile(
     r"(?:^|[，,、。.!！；;：:\s])(?:我(?:们)?(?:现在|目前|这里|这儿|这|家里|家|手里|手头|手上)?"
@@ -199,3 +199,91 @@ def save_reported(who, message, medicines_json):
         "source_type": "user_reported",
         "message": "药品资料已保存到“我的农药库”，重复药品不再新增。未知登记号留空；入库不代表允许使用，可在农药库编辑或删除。",
     }
+
+
+SAVE_WORDS = (
+    r"(?:记录|保存|添加|加入|录入|记|存)(?:入|进|到|在)?(?:我(?:的)?)?农药库(?:里|中)?"
+)
+SAVE_COMMAND = re.compile(
+    r"(?:请帮我|帮我|麻烦|请)?(?:把|将)?(?:它|这瓶农药|这瓶药|这款药)?" + SAVE_WORDS
+)
+
+
+def explicit_save_request(message):
+    """Recognize one unambiguous current stock statement plus an explicit save.
+
+    Complex/batch phrasing still goes through the model and save_reported's
+    existing validation. Never derive product names/numbers from registration
+    results, history or photos, and never associate one number with two names.
+    """
+    if not isinstance(message, str) or not re.search(SAVE_WORDS, message):
+        return None
+    if re.search(r"(?:不要|不用|不必|不想|不需要|别).{0,12}" + SAVE_WORDS, message):
+        return None
+    spans = ownership_spans(message)
+    if len(spans) != 1:
+        return None
+    quote = spans[0].strip()
+    match = OWNERSHIP.search(quote)
+    tail = quote[match.end() :].strip()
+    name = re.split(r"[，,\s]|(?:包装)?登记(?:证)?号", tail, maxsplit=1)[0]
+    if (
+        not re.fullmatch(r"[\u4e00-\u9fffA-Za-z0-9·.\-]{2,80}", name)
+        or any(w in name for w in ("、", "和", "以及", "还有"))
+        or NUMBER.fullmatch(name.upper())
+    ):
+        return None
+    # Multiple names or unrelated qualifications are not a single exact item.
+    suffix = tail[len(name) :].strip(" ，,")
+    if suffix and not re.fullmatch(
+        r"(?:包装)?登记(?:证)?号(?:是|为|[:：])?\s*(?:PD|WP|EX|LS)\d{6,12}",
+        suffix,
+        re.I,
+    ):
+        return None
+    numbers = NUMBER.findall(quote.upper())
+    if len(numbers) > 1 or any(
+        n not in numbers for n in NUMBER.findall(message.upper())
+    ):
+        return None
+    items = [
+        {"name": name, "number": numbers[0] if numbers else "", "source_quote": quote}
+    ]
+    rest = message.replace(quote, "", 1)
+    rest = SAVE_COMMAND.sub("", rest)
+    only_save = not re.sub(r"[\s，,。.!！；;：:]", "", rest)
+    return {
+        "medicines_json": json.dumps(items, ensure_ascii=False),
+        "only_save": only_save,
+    }
+
+
+def saved_receipt(result):
+    if result.get("status") != "saved":
+        return (
+            result.get("message")
+            or result.get("note")
+            or "未确认入库成功，请查看提示后重试。"
+        )
+    rows = []
+    for item in result.get("medicines", []):
+        action = {
+            "added": "已添加",
+            "updated": "已补全登记号",
+            "existing": "已有记录，未重复添加",
+        }.get(item.get("action"), "已保存")
+        rows.append(
+            item["name"]
+            + (
+                "（" + item["number"] + "）"
+                if item.get("number")
+                else "（登记号待补充）"
+            )
+            + "："
+            + action
+        )
+    return (
+        "药品资料已保存到“我的农药库”。\n"
+        + "\n".join(rows)
+        + "\n登记和用途仍待核对，这是核对状态，不影响药品资料已经保存。"
+    )

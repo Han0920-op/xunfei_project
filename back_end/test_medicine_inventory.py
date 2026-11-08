@@ -258,6 +258,97 @@ class ChatInventoryTests(unittest.TestCase):
         self.events("我手里有多菌灵", self.payload())
         self.assertEqual(len(personal.listing(self.who, "medicines")), 1)
 
+    def direct_chat(self, text, model_script=(), **form):
+        with patch.object(config, "SPARK_API_PASSWORD", "test"), patch.object(
+            dialogue.llm, "chat_stream", side_effect=model_script
+        ) as model:
+            response = self.client.post(
+                "/api/agent/chat",
+                headers={"X-Zhimai-Stream-Protocol": STREAM_PROTOCOL},
+                data={"message": text, **form},
+            )
+        self.assertEqual(response.status_code, 200)
+        return [
+            json.loads(line[6:])
+            for line in response.text.splitlines()
+            if line.startswith("data: ")
+        ], model.call_count
+
+    def test_explicit_save_with_number_does_not_need_model_or_registration_check(self):
+        text = "我手里有贝莱斯芽孢杆菌C17271，包装登记证号是PD20250010。请把它记到我的农药库里"
+        events, count = self.direct_chat(text)
+        self.assertEqual(count, 0)
+        rows = personal.listing(self.who, "medicines")
+        self.assertEqual(
+            [(r["name"], r["number"]) for r in rows],
+            [("贝莱斯芽孢杆菌C17271", "PD20250010")],
+        )
+        self.assertEqual(
+            [e["tool"] for e in events if e["type"] == "tool_result"],
+            ["save_my_medicines"],
+        )
+        self.assertIn(
+            "已保存", next(e["content"] for e in events if e["type"] == "answer")
+        )
+        self.assertEqual(events[-1]["type"], "done")
+        repeated, _ = self.direct_chat(text)
+        self.assertEqual(len(personal.listing(self.who, "medicines")), 1)
+        self.assertIn(
+            "未重复添加", next(e["content"] for e in repeated if e["type"] == "answer")
+        )
+
+    def test_combined_request_saves_before_models_registration_check_ends_turn(self):
+        text = "我手里有贝莱斯芽孢杆菌C17271，包装登记证号是PD20250010。请把它记到我的农药库里，再按小麦赤霉病核对能不能用。"
+        call = json.dumps(
+            {
+                "action": "tool",
+                "tool": "check_pesticide",
+                "args": {
+                    "registration_number": "PD20250010",
+                    "crop": "小麦",
+                    "target": "赤霉病",
+                },
+            }
+        )
+        events, count = self.direct_chat(text, [iter([call])])
+        self.assertEqual(count, 1)
+        self.assertEqual(
+            [e["tool"] for e in events if e["type"] == "tool_result"],
+            ["save_my_medicines", "check_pesticide"],
+        )
+        answer = next(e["content"] for e in events if e["type"] == "answer")
+        self.assertIn("已保存", answer)
+        self.assertIn("未核实", answer)
+        self.assertEqual(len(personal.listing(self.who, "medicines")), 1)
+
+    def test_explicit_save_failure_never_claims_success(self):
+        with patch.object(
+            inventory, "save_reported", side_effect=RuntimeError("private-db-path")
+        ):
+            events, count = self.direct_chat("我手里有多菌灵，请把它记到我的农药库里")
+        self.assertEqual(count, 0)
+        answer = next(e["content"] for e in events if e["type"] == "answer")
+        self.assertIn("保存失败", answer)
+        self.assertNotIn("已保存", answer)
+        self.assertNotIn("private-db-path", json.dumps(events))
+        self.assertEqual(personal.listing(self.who, "medicines"), [])
+
+    def test_explicit_route_rejects_uncertain_negated_quoted_and_ambiguous_items(self):
+        for text in [
+            "如果我手里有多菌灵，请记到我的农药库里",
+            "邻居说我手里有多菌灵，请记到我的农药库里",
+            "我手里有多菌灵吗？请记到我的农药库里",
+            "我手里有多菌灵，请不要记到我的农药库里",
+            "我手里有多菌灵，请别存入我的农药库里",
+            "我手里有多菌灵和吡虫啉，请记到我的农药库里",
+            "我手里有多菌灵、吡虫啉，请记到我的农药库里",
+            "我手里有多菌灵，邻居有吡虫啉PD20250010。请记到我的农药库里",
+            "请把图片里的药记到我的农药库里",
+            "请把上次说的药记到我的农药库里",
+        ]:
+            with self.subTest(text=text):
+                self.assertIsNone(inventory.explicit_save_request(text))
+
 
 if __name__ == "__main__":
     unittest.main()

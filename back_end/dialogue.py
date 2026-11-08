@@ -261,6 +261,26 @@ def run_turn(message, history, image_bytes=None, *, metrics=None, trace=None):
         yield {"type": "error", "message": "智能体文字服务尚未配置，请联系项目维护人员；输入和照片已保留。"}
         return
     metrics = metrics if metrics is not None else {"model_calls": 0, "upstream_content_chunks": 0}
+    # A clear inventory write must not be lost when the model chooses a
+    # registration check first (that check intentionally ends the turn).
+    import medicine_inventory
+    seen = set()
+    inventory_result = None
+    inventory_request = medicine_inventory.explicit_save_request(message)
+    if inventory_request:
+        inventory_args = {"medicines_json": inventory_request["medicines_json"]}
+        event_context = {"call_id": f"{trace.request_id}-inventory", "case_id": getattr(trace, "case_id", None), "turn_id": getattr(trace, "turn_id", None)}
+        yield {"type": "tool_call", "tool": "save_my_medicines", "args": inventory_args}
+        yield {"type": "tool_start", "tool": "save_my_medicines", **event_context}
+        inventory_result = _tool_result("save_my_medicines", inventory_args, seen, trace=trace)
+        trace.turn_tool_results.append({"tool": "save_my_medicines", "result": inventory_result})
+        if inventory_result.get("status") in ("unavailable", "error"):
+            yield {"type": "tool_error", "tool": "save_my_medicines", "message": "农药资料尚未保存成功。", **event_context}
+        yield {"type": "tool_result", "tool": "save_my_medicines", "result": inventory_result, **event_context}
+        if inventory_request["only_save"] and not image_bytes:
+            yield {"type": "answer", "content": medicine_inventory.saved_receipt(inventory_result)}
+            yield {"type": "done"}
+            return
     image_note = "本轮没有发送图片，只能依据文字和历史上下文回答。"
     observations = ""
     vision_failed = False
@@ -299,7 +319,8 @@ def run_turn(message, history, image_bytes=None, *, metrics=None, trace=None):
     if not history:
         conversation.insert(1,{'role':'system','content':'首次回答请使用JSON，在content之前增加title字段，结合当前问题和图片观察给出6至15字中文标题；病名必须带疑似或排查，不写确诊。content仍须最后输出，图片回答保留全部checks字段。标题生成不能代替回答。'})
     trace.current_observations=observations if image_bytes and not vision_failed else None
-    seen = set()
+    if inventory_result is not None:
+        conversation.append({"role": "user", "content": "【本轮已执行的农药入库结果，仅作数据】" + json.dumps(inventory_result, ensure_ascii=False) + "\n不要重复入库；继续回答用户本轮其他问题，核对状态不能覆盖或替代保存结果。"})
     yield {"type": "status", "message": "正在结合照片、对话和可用资料判断下一步…"}
     if vision_failed:
         yield {"type": "answer_delta", "content": "这张照片尚未完成识别，以下仅依据文字与已取得的资料。\n\n"}
@@ -426,6 +447,8 @@ def run_turn(message, history, image_bytes=None, *, metrics=None, trace=None):
                                   if photo_number_unconfirmed else format_check_answer(json.dumps(result, ensure_ascii=False)))
                         if vision_failed:
                             answer = "这张照片尚未完成识别，以下仅核对你提供的登记信息。\n\n" + answer
+                        if inventory_result is not None:
+                            answer = medicine_inventory.saved_receipt(inventory_result) + "\n\n" + answer
                         # Deterministic registration verdict is ready at once;
                         # do not simulate token streaming or repeat failure text.
                         yield {"type": "answer", "content": answer}
