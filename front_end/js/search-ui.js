@@ -59,7 +59,9 @@
           ? "正在联网搜索中……"
           : e.type === "tool_error" || e.result?.status !== "ok"
             ? "搜索失败，请重试"
-            : "已完成搜索",
+            : e.result?.results?.length
+              ? "已完成搜索"
+              : "检索完成，未找到匹配网页",
       result: e.result,
     };
     calls.set(e.call_id, state);

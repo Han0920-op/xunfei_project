@@ -168,3 +168,78 @@ class DeepSeekBrowserTests(unittest.TestCase):
         expect(card.locator(".web-source-card")).to_have_count(1)
         expect(card.locator("img,script")).to_have_count(0)
         expect(card).to_contain_text("<script>alert(1)</script>")
+
+    def test_official_fallback_under_windows_encoding_reaches_source_cards(self):
+        import web_search
+
+        original = Path.read_text
+
+        def gbk(path, encoding=None, errors=None):
+            return original(path, encoding=encoding or "gbk", errors=errors)
+
+        def get(url, **kwargs):
+            response = MagicMock(status_code=200, headers={})
+            response.__enter__.return_value = response
+            response.iter_content.return_value = [
+                (
+                    '<meta name="ArticleTitle" content="小麦赤霉病官方资料"><meta name="PubDate" content="2026-04-20"><div class="TRS_Editor">小麦赤霉病历史资料，需要核实现场情况。</div>'.encode()
+                    if "moa.gov.cn" in url
+                    else b"<rss><channel></channel></rss>"
+                )
+            ]
+            return response
+
+        call = json.dumps(
+            {
+                "action": "tool",
+                "tool": "search_web",
+                "args": {"query": "小麦 赤霉病 麦穗发白 农业农村部"},
+            }
+        )
+        with patch.object(config, "SPARK_API_PASSWORD", "test"), patch.object(
+            Path, "read_text", gbk
+        ), patch.object(web_search.requests, "get", side_effect=get), patch.object(
+            dialogue.llm,
+            "chat_stream",
+            side_effect=[
+                iter([call]),
+                iter(["已找到相关历史官方资料，仍需核实现场症状。"]),
+            ],
+        ):
+            self.page.goto(self.base + "/index.html")
+            self.page.locator("#messageInput").fill("请联网查询小麦赤霉病权威资料")
+            self.page.locator("#sendButton").click()
+            card = self.page.get_by_role("region", name="联网搜索相关网页")
+            expect(self.page.locator(".agent-answer")).to_contain_text("已找到")
+            expect(
+                card.get_by_role("link", name="小麦赤霉病官方资料", exact=True).first
+            ).to_be_visible()
+            expect(card).to_contain_text("2026-04-20")
+            expect(card).to_contain_text("实时读取的历史官方文章")
+            self.page.reload()
+            expect(
+                card.get_by_role("link", name="小麦赤霉病官方资料", exact=True).first
+            ).to_be_visible()
+            self.overflow()
+
+    def test_failed_search_keeps_specific_network_reason_in_saved_answer(self):
+        import web_search, requests
+
+        call = json.dumps(
+            {"action": "tool", "tool": "search_web", "args": {"query": "小麦 赤霉病"}}
+        )
+        with patch.object(config, "SPARK_API_PASSWORD", "test"), patch.object(
+            web_search.requests,
+            "get",
+            side_effect=requests.exceptions.ProxyError("private-password"),
+        ), patch.object(dialogue.llm, "chat_stream", return_value=iter([call])):
+            self.page.goto(self.base + "/index.html")
+            self.page.locator("#messageInput").fill("请联网查小麦赤霉病")
+            self.page.locator("#sendButton").click()
+            expect(self.page.locator(".agent-answer")).to_contain_text("代理连接失败")
+            card = self.page.get_by_role("region", name="联网搜索相关网页")
+            expect(card.locator(".web-source-card")).to_have_count(0)
+            expect(card).to_contain_text("不代表网上没有相关资料")
+            self.page.reload()
+            expect(self.page.locator(".agent-answer")).to_contain_text("代理连接失败")
+            expect(self.page.locator("body")).not_to_contain_text("private-password")

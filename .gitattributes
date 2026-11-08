@@ -1,1 +1,4 @@
 start.bat text eol=crlf
+
+# Preserve the byte-verified source archive on Windows checkouts.
+back_end/data/knowledge/source.txt -text

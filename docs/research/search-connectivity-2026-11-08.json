@@ -1,0 +1,38 @@
+{
+  "environment": "managed cloud; not the user Windows computer",
+  "probe": {
+    "local_knowledge": {
+      "status": "found",
+      "count": 1
+    },
+    "web_search": {
+      "status": "ok",
+      "query": "小麦 赤霉病 麦穗局部发白 农业农村部",
+      "source": "已配置官方页面实时补充检索",
+      "message": "公开搜索未取得相关网页；已实时读取配置中的官方历史文章。发布日期与适用条件须另行核对，不代表全网搜索覆盖或当前预警。",
+      "attempts": [
+        {
+          "source": "必应检索",
+          "reason": "no_match"
+        },
+        {
+          "source": "官方网页",
+          "reason": "found"
+        },
+        {
+          "source": "官方网页",
+          "reason": "no_match"
+        }
+      ],
+      "results": [
+        {
+          "title": "农业农村部部署小麦赤霉病防控工作",
+          "url": "https://www.moa.gov.cn/xw/zwdt/202604/t20260420_6483403.htm",
+          "published_on": "2026-04-20",
+          "retrieved_at": "2026-11-08T04:52:53.801061+00:00"
+        }
+      ]
+    },
+    "elapsed_seconds": 7.38
+  }
+}

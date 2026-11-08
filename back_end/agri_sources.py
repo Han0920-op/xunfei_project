@@ -624,7 +624,7 @@ def refresh():
         state["candidate_count"] = len(candidates)
         # Recheck every reviewed document so changed content loses its review gate.
         seed = json.loads(
-            (Path(__file__).parent / "data/knowledge/official_feeds.json").read_text()
+            (Path(__file__).parent / "data/knowledge/official_feeds.json").read_text(encoding="utf-8-sig")
         )["seed_urls"]
         urls = list(
             dict.fromkeys(candidates[:10] + seed + [d["url"] for d in documents()])

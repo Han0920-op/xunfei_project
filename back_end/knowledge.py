@@ -57,6 +57,10 @@ def load_corpus(directory=DATA_DIR):
     directory = Path(directory)
     corpus = json.loads((directory / "observations.json").read_text(encoding="utf-8"))
     archive = (directory / "source.txt").read_bytes()
+    # Windows Git checkouts may rewrite LF to CRLF. Accept only this exact
+    # reversible newline change; all other content/hash checks remain strict.
+    if digest(archive) != corpus["source"]["archive_sha256"]:
+        archive = archive.replace(b"\r\n", b"\n")
     if corpus["schema_version"] != 1 or digest(archive) != corpus["source"]["archive_sha256"]:
         raise ValueError("资料版本或原文校验失败")
     paragraphs = dict(line.split(" ", 1) for line in archive.decode().splitlines())

@@ -384,7 +384,7 @@ def run_turn(message, history, image_bytes=None, *, metrics=None, trace=None):
                     if failed:yield {'type':'tool_error','tool':name,**event_context,'message':result.get('message',result.get('note','工具未完成'))}
                     yield {"type": "tool_result", "tool": name if name in ALLOWED_TOOLS else "unavailable", "result": result,**event_context}
                     if name=='search_web' and (failed or not result.get('results')):
-                        yield {'type':'answer','content': '本次联网搜索未能取得可用资料。' + ('搜索服务暂时不可用，可稍后重试。' if failed else '没有找到匹配的网页，可以补充具体病害名称或症状关键词。') + '不能据此判断作物正常或给出用药结论。此前已保存的案例仍保留。'}
+                        yield {'type':'answer','content': '本次联网搜索未能取得可用资料。' + (result.get('message') or ('搜索请求未完成，可稍后重试。' if failed else '没有找到匹配的网页，可以补充具体病害名称或症状关键词。')) + '不能据此判断作物正常或给出用药结论。此前已保存的案例仍保留。'}
                         yield {'type':'done'}
                         return
                     if name=='save_execution_plan' and result.get('status')=='saved':
