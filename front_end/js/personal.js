@@ -137,6 +137,14 @@
       await window.PersonalReady;
       const r = await fetch("/api/memory/cases", { cache: "no-store" });
       if (r.ok) cases = (await r.json()).filter((c) => !c.archived);
+      if (
+        !item.id &&
+        params.get("case") &&
+        !cases.some((c) => c.id === params.get("case"))
+      )
+        throw Error(
+          "关联案例已结束或暂时无法读取，请先打开有效案例再安排复查。",
+        );
     }
     if (!item.id && params.get("case"))
       item = {
@@ -144,6 +152,12 @@
         case_id: params.get("case"),
         task_type: "followup",
         recurrence: "once",
+        ...(params.get("compose") === "followup"
+          ? {
+              name: "案例复查",
+              notes: "请按排查方案补拍关键部位，并记录与上次相比的变化。",
+            }
+          : {}),
       };
 
     const identifier = item.id || crypto.randomUUID(),
@@ -277,12 +291,19 @@
     await window.PersonalReady;
     await render();
     if (!medicine && tab === "tasks" && params.has("location"))
-      edit({
+      await edit({
         id: params.get("draft") || undefined,
         location: params.get("location"),
         time: params.get("time") || "08:00",
         notes: params.get("concern") || "",
       });
+    else if (
+      !medicine &&
+      tab === "tasks" &&
+      params.get("compose") === "followup" &&
+      params.get("case")
+    )
+      await edit();
   } catch (e) {
     fail(e);
   }

@@ -136,6 +136,29 @@ def ensure(c):
     )
 
 
+def public_plan(body, archived=False):
+    """Old plans need no migration; progress is derived from their saved steps."""
+    completed = sum(step.get("completed") is True for step in body["steps"])
+    total = len(body["steps"])
+    return {
+        **body,
+        "revision": body.get("revision", 0),
+        "case_archived": bool(archived),
+        "progress": {"completed": completed, "total": total},
+        "status": (
+            "completed"
+            if total and completed == total
+            else "in_progress" if completed else "pending"
+        ),
+    }
+
+
+class StepUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    completed: bool
+    revision: int = Field(ge=0)
+
+
 def save(who, case_id, turn_id, payload, current_tools=None, current_message=""):
     if not who or not case_id or not turn_id:
         return {
@@ -266,9 +289,9 @@ def listing(request: Request, response: Response):
     with memory.db() as c:
         ensure(c)
         return [
-            json.loads(r["body"])
+            public_plan(json.loads(r["body"]), r["case_archived"])
             for r in c.execute(
-                "SELECT p.body FROM execution_plans p JOIN memory_cases m ON p.case_id=m.id AND p.owner=m.owner WHERE p.owner=? ORDER BY p.created DESC LIMIT 200",
+                "SELECT p.body,m.archived AS case_archived FROM execution_plans p JOIN memory_cases m ON p.case_id=m.id AND p.owner=m.owner WHERE p.owner=? ORDER BY p.created DESC LIMIT 200",
                 (who,),
             )
         ]
@@ -285,5 +308,46 @@ def read(identifier: str, request: Request, response: Response):
         ).fetchone()
         if not row:
             raise HTTPException(404, "方案不存在或不属于当前身份")
-        memory.owned(c, who, row["case_id"])
-        return json.loads(row["body"])
+        case = memory.owned(c, who, row["case_id"])
+        return public_plan(json.loads(row["body"]), case["archived"])
+
+
+@router.patch("/{identifier}/steps/{number}")
+def update_step(
+    identifier: str, number: int, item: StepUpdate, request: Request, response: Response
+):
+    who = memory.write_owner(request)
+    response.headers["Cache-Control"] = "no-store"
+    with memory.db() as c:
+        ensure(c)
+        c.execute("BEGIN IMMEDIATE")
+        row = c.execute(
+            "SELECT * FROM execution_plans WHERE id=? AND owner=?", (identifier, who)
+        ).fetchone()
+        if not row:
+            raise HTTPException(404, "方案不存在或不属于当前身份")
+        case = memory.owned(c, who, row["case_id"])
+        if case["archived"]:
+            raise HTTPException(409, "关联案例已结束，请先重新打开案例再更新方案进度。")
+        body = json.loads(row["body"])
+        if item.revision != body.get("revision", 0):
+            raise HTTPException(
+                409, "方案进度已在其他页面更新，请读取最新进度后再操作。"
+            )
+        step = next((s for s in body["steps"] if s["number"] == number), None)
+        if step is None:
+            raise HTTPException(404, "这一步不属于当前方案")
+        if bool(step.get("completed")) != item.completed:
+            stamp = personal.now().isoformat()
+            step["completed"] = item.completed
+            step["completed_at"] = stamp if item.completed else None
+            body["revision"] = item.revision + 1
+            body["updated_at"] = stamp
+            # User-reported task progress never changes diagnosis, medicine
+            # verification, case facts, reminders, or the case's archive state.
+            body = public_plan(body)
+            c.execute(
+                "UPDATE execution_plans SET body=? WHERE id=? AND owner=?",
+                (json.dumps(body, ensure_ascii=False), identifier, who),
+            )
+        return public_plan(body)
