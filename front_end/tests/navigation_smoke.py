@@ -32,7 +32,8 @@ class NavigationTests(unittest.TestCase):
         expect(
             self.view().get_by_role("button", name="新增农药", exact=True)
         ).to_be_visible()
-        self.view().get_by_role("link", name="提醒", exact=True).click()
+        self.view().locator(".alert-nav > summary").click()
+        self.view().get_by_role("link", name="提醒任务", exact=True).click()
         expect(
             self.view().get_by_role("button", name="新增提醒", exact=True)
         ).to_be_visible()
@@ -113,7 +114,8 @@ class NavigationTests(unittest.TestCase):
                 self.page.locator("#messageInput").fill("请帮我看看小麦")
                 self.page.locator("#sendButton").click()
                 expect(self.page.locator(".thinking")).to_be_visible()
-                self.page.get_by_role("link", name="提醒", exact=True).click()
+                self.page.locator(".alert-nav > summary").click()
+                self.page.get_by_role("link", name="提醒任务", exact=True).click()
                 expect(
                     self.view().get_by_role("button", name="新增提醒", exact=True)
                 ).to_be_visible()

@@ -84,6 +84,7 @@ class WeatherAlertBrowserTests(unittest.TestCase):
                 self.base + "/api/intelligence/subscriptions"
             ).json()["subscriptions"][0]["weather_enabled"]
         )
+        self.page.get_by_role("button", name="打开导航", exact=True).click()
         self.page.get_by_role("link", name="天气预警", exact=True).click()
         for action in ("升级", "解除"):
             self.page.get_by_label("演示阶段", exact=True).select_option(label=action)

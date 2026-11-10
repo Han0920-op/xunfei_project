@@ -14,7 +14,7 @@ from pydantic import ValidationError
 
 LOGGER = logging.getLogger('uvicorn.error')
 FILES = {'chat_api.py', 'dialogue.py', 'llm.py', 'response_stream.py', 'answer_review.py',
-         'tools.py', 'weather.py', 'knowledge.py', 'pesticides.py', 'vision.py'}
+         'tools.py', 'weather.py', 'knowledge.py', 'pesticides.py', 'vision.py', 'execution_plans.py'}
 TYPES = {'Exception', 'RuntimeError', 'ValueError', 'TypeError', 'KeyError', 'IndexError',
          'AttributeError', 'JSONDecodeError', 'ValidationError', 'ResponseFormatError',
          'LLMError', 'VisionError', 'Timeout', 'ReadTimeout', 'ConnectTimeout',
@@ -42,9 +42,11 @@ REASONS = {'invalid tool envelope':'invalid_tool_envelope',
            '模型流格式错误': 'invalid_sse_frame',
            '模型流返回错误': 'provider_error_frame'}
 FIELDS = {'action', 'verdict', 'checks', 'temporal_consistency', 'current_image_priority',
-          'health_claim_supported', 'action_supported', 'issue_codes', 'content'}
+          'health_claim_supported', 'action_supported', 'issue_codes', 'content',
+          'plan_json', 'title', 'steps', 'crop', 'region', 'growth_stage'}
 VALIDATION_TYPES = {'missing', 'extra_forbidden', 'bool_type', 'literal_error', 'list_type',
-                    'string_type', 'model_type', 'too_long'}
+                    'string_type', 'model_type', 'too_long', 'too_short', 'string_too_short',
+                    'string_too_long', 'value_error', 'json_invalid'}
 
 
 def exception_metadata(exc):

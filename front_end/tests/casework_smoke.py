@@ -125,7 +125,7 @@ class CaseworkBrowserTests(unittest.TestCase):
     def test_region_subscribe_pause_delete_and_no_fake_current_risk(self):
         self.page.goto(self.base + "/intelligence.html")
         expect(
-            self.page.get_by_role("heading", name="地区植保订阅", exact=True)
+            self.page.get_by_role("heading", name="地区订阅", exact=True)
         ).to_be_visible()
         self.overflow()
         expect(self.page.locator(".personal-banner")).to_contain_text("当前没有")

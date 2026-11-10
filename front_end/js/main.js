@@ -7,6 +7,32 @@
   const params = new URLSearchParams(location.search),
     isHistory = document.body.dataset.screen === "history";
   const requested = params.get("record");
+  const photoPrompts = [
+    {
+      id: "observe",
+      label: "查看异常",
+      icon: "search",
+      text: "请观察图片中的小麦异常，区分可见症状与可能原因，说明判断依据和不确定之处；如果信息不足，请指出最需要补拍的部位。不要仅凭图片确诊。",
+    },
+    {
+      id: "diagnose",
+      label: "病害排查",
+      icon: "leaf",
+      text: "请结合图片和已有案例信息，分析需要重点排查的病害及其他可能原因，检索可用依据，并给出下一步现场检查建议。请明确哪些信息尚未核实。",
+    },
+    {
+      id: "followup",
+      label: "对比复查",
+      icon: "history",
+      text: "这是本次案例的复查照片，请与此前记录对比，区分可观察到的变化和无法判断的部分，建议下一步记录什么；不要仅凭照片判断药效。",
+    },
+    {
+      id: "label",
+      label: "核对农药包装",
+      icon: "book",
+      text: "请识别这张农药包装照片上清晰可见的登记号、成分、含量和剂型，看不清的字段请注明，不猜测。请先让我确认识别结果，再提示需要核对的登记与标签信息。",
+    },
+  ];
   const ui = {
     record: requested ? S.get(requested) : null,
     draft: "",
@@ -33,12 +59,39 @@
   function photoHTML(p, caption = "") {
     return `<figure class="saved-photo"><img data-photo="${esc(p.id)}" alt="${esc(p.name || "现场照片")}" loading="lazy">${caption ? `<figcaption>${esc(caption)}</figcaption>` : ""}</figure>`;
   }
+  function photoPromptHTML() {
+    if (!ui.photo || ui.pending) return "";
+    const hasEarlierPhoto = Boolean(ui.record?.photos?.length);
+    return `<section class="photo-prompts" aria-label="图片提问建议"><div><strong>想重点了解什么？</strong><small>选择后可修改，点击发送才提交</small></div><div class="prompt-options">${photoPrompts
+      .filter((p) => p.id !== "followup" || hasEarlierPhoto)
+      .map(
+        (p) =>
+          `<button type="button" data-action="photo-prompt" data-prompt="${p.id}" aria-pressed="${ui.draft === p.text}" ${ui.busy ? "disabled" : ""}>${icon(p.icon)}${p.label}</button>`,
+      )
+      .join("")}</div></section>`;
+  }
+  function fieldIllustration() {
+    return `<div class="field-illustration" aria-hidden="true"><div class="field-sun"></div><div class="field-hill far"></div><div class="field-hill near"></div><div class="field-wheat">${[0, 1, 2, 3, 4].map((i) => `<span style="--stalk:${i}">${icon("wheat")}</span>`).join("")}</div><span class="field-caption">把每一次观察，留给下一次判断。</span></div>`;
+  }
+  function planReceipt(m) {
+    const calls = (m.toolResults || []).filter(
+      (t) => t.tool === "save_execution_plan",
+    );
+    const saved = calls.find((t) => t.result?.status === "saved");
+    if (saved) {
+      const r = saved.result;
+      return `<section class="plan-receipt" aria-label="已保存的执行方案"><span class="receipt-state">${icon("check")}方案已保存</span><h3>${esc(r.title || "案例排查执行方案")}</h3>${r.steps?.length ? `<ol>${r.steps.map((s) => `<li>${esc(s.title)}</li>`).join("")}</ol>` : ""}<p>已关联当前案例，可以从“我的记录 → 执行方案”继续查看。</p><a class="button primary" href="plans.html?id=${encodeURIComponent(r.plan_id)}">查看已保存的执行方案 ${icon("arrow")}</a></section>`;
+    }
+    if (!calls.length) return "";
+    const draft = calls.at(-1).result?.draft_steps || [];
+    return `<section class="plan-receipt plan-unsaved" aria-label="方案保存未完成"><h3>方案尚未保存</h3>${draft.length ? `<p>以下排查草稿尚未保存为执行方案：</p><ol>${draft.map((s) => `<li><strong>${esc(s.title)}</strong><p>${esc(s.operation)}</p></li>`).join("")}</ol>` : "<p>请查看本轮失败原因，原有案例仍保留。</p>"}<button class="button secondary" data-action="retry-plan" ${ui.busy || ui.record?.archived ? "disabled" : ""}>重新整理并保存方案 ${icon("arrow")}</button></section>`;
+  }
   function composer() {
-    return `<div class="composer ${!ui.record && !ui.pending ? "home-composer" : ""}"><div class="attachment" ${ui.photo && !ui.pending ? "" : "hidden"}>${ui.photo && !ui.pending ? `<img src="${ui.photoUrl}" alt="待发送的照片"><span><strong>${esc(ui.photo.name)}</strong><small>已选好，还没发送</small></span><button class="icon-button" data-action="remove-photo" aria-label="移除待发送照片" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${icon("close")}</button>` : ""}</div>${ui.photoLoading ? '<p class="reading-photo"><span class="spinner"></span>正在读取照片…</p>' : ""}<p class="error" id="fileError" role="alert">${esc(ui.fileError)}</p>${window.RegionalChat?.markup(ui.regionId, ui.busy) || ""}<form id="messageForm"><label class="sr-only" for="messageInput">描述你看到的情况</label><textarea id="messageInput" rows="2" maxlength="4000" placeholder="直接说说情况，也可以问天气或核对手里的药…" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${ui.busy ? "" : esc(ui.draft)}</textarea><div class="composer-bottom"><button type="button" class="attach-button" data-action="photo" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${icon("camera")} ${ui.photo ? "换张照片" : "添加照片"}</button><button type="submit" id="sendButton" class="button primary" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${ui.busy ? '<span class="spinner"></span>正在处理' : "发给智麦 " + icon("arrow")}</button>${ui.busy ? '<button type="button" class="button secondary" data-action="stop">停止生成</button>' : ""}</div></form><p class="error" id="sendError" role="alert">${esc(ui.error)}</p>${ui.error ? '<button class="text-button" data-action="retry">重新发送</button>' : ""}<div class="composer-caption"><span>发送后交给服务及模型处理；对话与压缩照片保存到你的案例；照片定位信息会移除</span><span>Shift + Enter 换行</span></div></div>`;
+    return `<div class="composer ${!ui.record && !ui.pending ? "home-composer" : ""}"><div class="attachment" ${ui.photo && !ui.pending ? "" : "hidden"}>${ui.photo && !ui.pending ? `<img src="${ui.photoUrl}" alt="待发送的照片"><span><strong>${esc(ui.photo.name)}</strong><small>已选好，还没发送</small></span><button class="icon-button" data-action="remove-photo" aria-label="移除待发送照片" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${icon("close")}</button>` : ""}</div>${ui.photoLoading ? '<p class="reading-photo"><span class="spinner"></span>正在读取照片…</p>' : ""}<p class="error" id="fileError" role="alert">${esc(ui.fileError)}</p>${window.RegionalChat?.markup(ui.regionId, ui.busy) || ""}${photoPromptHTML()}<form id="messageForm"><label class="sr-only" for="messageInput">描述你看到的情况</label><textarea id="messageInput" rows="2" maxlength="4000" placeholder="直接说说情况，也可以问天气或核对手里的药…" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${ui.busy ? "" : esc(ui.draft)}</textarea><div class="composer-bottom"><button type="button" class="attach-button" data-action="photo" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${icon("camera")} ${ui.photo ? "换张照片" : "添加照片"}</button><button type="submit" id="sendButton" class="button primary" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${ui.busy ? '<span class="spinner"></span>正在处理' : "发给智麦 " + icon("arrow")}</button>${ui.busy ? '<button type="button" class="button secondary" data-action="stop">停止生成</button>' : ""}</div></form><p class="error" id="sendError" role="alert">${esc(ui.error)}</p>${ui.error ? '<button class="text-button" data-action="retry">重新发送</button>' : ""}<div class="composer-caption"><span>发送后交给服务及模型处理；对话与压缩照片保存到你的案例；照片定位信息会移除</span><span>Shift + Enter 换行</span></div></div>`;
   }
   function home() {
     const last = S.records().find((r) => !r.archived);
-    return `<section class="welcome"><div class="welcome-tag">${icon("leaf")} 专注冬小麦，陪你找到下一步</div><h1>小麦不对劲？<br>拍一张，一起看看。</h1><p>先查清原因，再核对用药。<br class="mobile-break">直接聊，智麦会结合照片和上下文判断下一步。</p></section><div class="home-workspace"><section class="start-card"><button class="photo-start" data-action="photo"><span class="camera-badge">${icon("camera")}</span><strong>拍照看病虫害</strong><span>拍清异常部位，能拍全株更好</span><b>选择或拍摄照片 ${icon("arrow")}</b></button><div class="or-label"><span></span>也可以直接说<span></span></div>${composer()}</section><aside class="home-aside"><button class="medicine-entry" data-action="medicine"><span class="entry-icon">${icon("book")}</span><span><strong>手里的药，能不能用？</strong><small>直接发登记号，结合实际问题核对</small></span>${icon("chevron")}</button><section class="quick-questions"><h2>不知道怎么说？试试这些</h2>${["叶片发黄了，帮我看看可能的原因", "今天适不适合下地？先帮我查天气", "我想核对手里的农药"].map((t) => `<button data-action="quick" data-text="${t}">${icon("leaf")}<span>${t}</span>${icon("arrow")}</button>`).join("")}</section>${last ? `<section class="last-record"><span class="small-label">上次的问题，接着看看</span><h2>${esc(last.title)}</h2><p>${day(last.updatedAt)}${last.demo ? " · 示例过程" : ""}</p><div><a href="index.html?record=${encodeURIComponent(last.id)}">继续查看 ${icon("arrow")}</a><button data-action="open-followup" data-id="${esc(last.id)}">拍照复查</button></div></section>` : `<section class="simple-promise">${icon("history")}<div><strong>这次的问题，会帮你记着</strong><p>下次带照片回来，<br>就能对照之前的情况继续看。</p></div></section>`}</aside></div>`;
+    return `<section class="welcome"><div class="welcome-copy"><div class="welcome-tag">${icon("leaf")} 专注冬小麦，陪你找到下一步</div><h1>小麦不对劲？<br>拍一张，一起看看。</h1><p>先查清原因，再核对用药。<br class="mobile-break">直接聊，智麦会结合照片和上下文判断下一步。</p><div class="welcome-steps"><span>01 观察异常</span><span>02 查询依据</span><span>03 跟进复查</span></div></div>${fieldIllustration()}</section><div class="home-workspace"><section class="start-card ${ui.photo ? "has-photo" : ""}"><button class="photo-start" data-action="photo"><span class="camera-badge">${icon("camera")}</span><strong>拍照看病虫害</strong><span>拍清异常部位，能拍全株更好</span><b>选择或拍摄照片 ${icon("arrow")}</b></button><div class="or-label"><span></span>也可以直接说<span></span></div>${composer()}</section><aside class="home-aside"><button class="medicine-entry" data-action="medicine"><span class="entry-icon">${icon("book")}</span><span><strong>手里的药，能不能用？</strong><small>直接发登记号，结合实际问题核对</small></span>${icon("chevron")}</button><section class="quick-questions"><h2>不知道怎么说？试试这些</h2>${["叶片发黄了，帮我看看可能的原因", "今天适不适合下地？先帮我查天气", "我想核对手里的农药"].map((t) => `<button data-action="quick" data-text="${t}">${icon("leaf")}<span>${t}</span>${icon("arrow")}</button>`).join("")}</section>${last ? `<section class="last-record"><span class="small-label">上次的问题，接着看看</span><h2>${esc(last.title)}</h2><p>${day(last.updatedAt)}${last.demo ? " · 示例过程" : ""}</p><div><a href="index.html?record=${encodeURIComponent(last.id)}">继续查看 ${icon("arrow")}</a><button data-action="open-followup" data-id="${esc(last.id)}">拍照复查</button></div></section>` : `<section class="simple-promise">${icon("history")}<div><strong>这次的问题，会帮你记着</strong><p>下次带照片回来，<br>就能对照之前的情况继续看。</p></div></section>`}</aside></div>`;
   }
   const actionButton = (action, text, ic, primary = false) =>
     `<button class="${primary ? "button primary" : "button secondary"}" data-action="${action}" ${ui.busy || ui.photoLoading ? "disabled" : ""}>${ic ? icon(ic) : ""}${text}</button>`;
@@ -190,20 +243,7 @@
       content =
         '<div class="agent-answer">这条旧回复包含未执行的工具调用，没有生成有效的确认卡。请重新发送，并确认提醒的日期、时间与事项。</div>';
     else if (m.type === "agent")
-      content = `<div class="agent-answer">${esc(m.text).replaceAll("\n", "<br>")}</div>${(
-        m.toolResults || []
-      )
-        .filter(
-          (t) =>
-            t.tool === "save_execution_plan" && t.result?.status === "saved",
-        )
-        .map(
-          (t) =>
-            `<a class="button primary" href="plans.html?id=${encodeURIComponent(t.result.plan_id)}">查看已保存的执行方案</a>`,
-        )
-        .join(
-          "",
-        )}${window.SearchUI?.forMessage(m) || ""}${inventoryReceipt(m)}${window.ReminderCards.markup(ui.record.id, m)}${window.MemoryUI?.cards(ui.record.id, m) || ""}${agentTraceHTML(m)}${last ? `<div class="answer-actions">${actionButton("photo", "补充照片", "camera")}${actionButton("summary", "下载问题摘要", "download")}</div>` : ""}`;
+      content = `<div class="agent-answer">${esc(m.text).replaceAll("\n", "<br>")}</div>${planReceipt(m)}${window.SearchUI?.forMessage(m) || ""}${inventoryReceipt(m)}${window.ReminderCards.markup(ui.record.id, m)}${window.MemoryUI?.cards(ui.record.id, m) || ""}${agentTraceHTML(m)}${last ? `<div class="answer-actions">${actionButton("photo", "补充照片", "camera")}${actionButton("summary", "下载问题摘要", "download")}</div>` : ""}`;
     else if (m.type === "local-note") content = `<p>${esc(m.text)}</p>`;
     else if (m.type === "question")
       content = `<p class="question-text">${esc(m.text)}</p>${m.hint ? `<p class="message-hint">${esc(m.hint)}</p>` : ""}${knowledgeHTML(m.knowledge)}`;
@@ -250,7 +290,7 @@
         demo: false,
       },
       last = t.messages.filter((m) => m.role === "assistant").at(-1)?.id;
-    return `<section class="thread-heading"><div><a class="back-link" href="history.html">${icon("back")} 我的记录</a><h1>${esc(t.title)}</h1><p>${day(t.createdAt)}${t.serverMemory?.saved ? " · 案例已保存到服务端" : ""} · ${t.archived ? "这次跟踪已结束" : "这次的问题，会接着记"}${t.demo ? " · 此前的演示记录" : " · 智能体对话"}</p></div>${ui.record ? `<button class="icon-button" data-action="more" aria-label="这条记录的更多操作" ${ui.busy ? "disabled" : ""}>${icon("more")}</button>` : ""}</section>${t.serverMemory?.saved ? `<p class="case-thread-links"><a class="button secondary" href="memory.html?case=${encodeURIComponent(t.id)}">案例进度、复查反馈与依据报告 ${icon("arrow")}</a></p>` : ""}<section class="conversation" aria-label="问题与回答"><div class="messages" role="log" aria-live="polite">${t.messages.map((m) => messageHTML(m, m.id === last)).join("")}${pendingMessageHTML()}${streamingMessageHTML()}${ui.busy ? `<div class="thinking"><span class="spinner" aria-hidden="true"></span><span id="agentProgress" role="status">${esc(ui.progress || "智麦正在结合上下文分析…")}</span></div>` : ""}</div>${t.followupDate ? `<div class="followup-date">${icon("clock")}你计划在 ${day(t.followupDate)} 再来看看 <small>日期已保存，暂不推送通知</small></div>` : ""}${t.archived ? `<div class="closed-record">这次跟踪已结束。<button class="text-button" data-action="reopen">继续跟踪</button></div>` : `${ui.record ? `<div class="followup-tools"><button data-action="action" ${ui.busy ? "disabled" : ""}>${icon("check")}记下我做了什么</button><button data-action="schedule" ${ui.busy ? "disabled" : ""}>${icon("clock")}约个时间复查</button></div>` : ""}${composer()}`}<div id="threadEnd"></div></section>`;
+    return `<section class="thread-heading"><div><a class="back-link" href="history.html">${icon("back")} 我的记录</a><h1>${esc(t.title)}</h1><p>${day(t.createdAt)}${t.serverMemory?.saved ? " · 案例已保存到服务端" : ""} · ${t.archived ? "这次跟踪已结束" : "这次的问题，会接着记"}${t.demo ? " · 此前的演示记录" : " · 智能体对话"}</p></div>${ui.record ? `<button class="icon-button" data-action="more" aria-label="这条记录的更多操作" ${ui.busy ? "disabled" : ""}>${icon("more")}</button>` : ""}</section>${t.serverMemory?.saved ? `<p class="case-thread-links"><a class="button secondary" href="memory.html?case=${encodeURIComponent(t.id)}">案例进度、复查反馈与依据报告 ${icon("arrow")}</a></p>` : ""}<section class="conversation" aria-label="问题与回答"><div class="messages" role="log" aria-live="polite">${t.messages.map((m) => messageHTML(m, m.id === last)).join("")}${pendingMessageHTML()}${streamingMessageHTML()}${ui.busy ? `<div class="thinking"><span class="spinner" aria-hidden="true"></span><span id="agentProgress" role="status">${esc(ui.progress || "智麦正在结合上下文分析…")}</span></div>` : ""}</div>${t.followupDate ? `<div class="followup-date">${icon("clock")}你计划在 ${day(t.followupDate)} 再来看看 <small>日期已保存，暂不推送通知</small></div>` : ""}${t.archived ? `<div class="closed-record">这次跟踪已结束。<button class="text-button" data-action="reopen">继续跟踪</button></div>` : `${ui.record ? `<div class="followup-tools"><button data-action="retry-plan" ${ui.busy ? "disabled" : ""}>${icon("book")}生成排查方案</button><button data-action="action" ${ui.busy ? "disabled" : ""}>${icon("check")}记下我做了什么</button><button data-action="schedule" ${ui.busy ? "disabled" : ""}>${icon("clock")}约个时间复查</button></div>` : ""}${composer()}`}<div id="threadEnd"></div></section>`;
   }
   function recordState(t) {
     if (t.archived) return "已结束";
@@ -297,6 +337,15 @@
     if (input) {
       input.oninput = () => {
         ui.draft = input.value;
+        root.querySelectorAll("[data-prompt]").forEach((button) => {
+          button.setAttribute(
+            "aria-pressed",
+            String(
+              photoPrompts.find((p) => p.id === button.dataset.prompt)?.text ===
+                ui.draft,
+            ),
+          );
+        });
       };
       input.onkeydown = (e) => {
         if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
@@ -401,6 +450,7 @@
       ui.photoLoading = false;
       ui.fileError = "";
       ui.error = "";
+      if (!ui.draft.trim()) ui.draft = photoPrompts[0].text;
       render();
     } catch (e) {
       URL.revokeObjectURL(url);
@@ -414,9 +464,11 @@
   async function send(choice) {
     if (ui.busy || ui.photoLoading) return;
     const text =
-      typeof choice === "string"
+      (typeof choice === "string"
         ? choice
-        : (document.getElementById("messageInput")?.value ?? ui.draft).trim();
+        : (
+            document.getElementById("messageInput")?.value ?? ui.draft
+          ).trim()) || (ui.photo ? photoPrompts[0].text : "");
     ui.draft = text;
     if (!text && !ui.photo) {
       document.getElementById("messageInput")?.focus();
@@ -693,7 +745,21 @@
       clearPhoto();
       render();
     }
-    if (action === "quick") send(b.dataset.text);
+    if (action === "photo-prompt") {
+      const prompt = photoPrompts.find((p) => p.id === b.dataset.prompt);
+      if (prompt && ui.photo) {
+        ui.draft = prompt.text;
+        render({ focus: true });
+      }
+    }
+    if (action === "quick") {
+      ui.draft = b.dataset.text;
+      render({ focus: true });
+    }
+    if (action === "retry-plan")
+      send(
+        "请根据当前案例和已有排查要点，重新整理并保存排查执行方案，包含补拍、观察记录、标签核对及农技复核条件。请保留尚未核实的信息，不生成施药处方。",
+      );
     if (action === "answer") send(b.dataset.text);
     if (action === "retry") send(ui.retryChoice);
     if (action === "medicine") startMedicine();

@@ -226,6 +226,156 @@ class DeliveryTests(unittest.TestCase):
             )
         self.assertEqual(self.client.get("/api/plans").json(), [])
 
+    @staticmethod
+    def plan_call(payload):
+        return json.dumps(
+            {
+                "action": "tool",
+                "tool": "save_execution_plan",
+                "args": {"plan_json": payload},
+            },
+            ensure_ascii=False,
+        )
+
+    def test_plan_normalizes_short_title_object_steps_and_null_context(self):
+        self.seed()
+        events = self.chat(
+            [
+                self.plan_call(
+                    {
+                        "title": "白穗排查",
+                        "crop": "小麦",
+                        "region": "郑州",
+                        "growth_stage": None,
+                        "steps": [
+                            {"action": "photograph", "description": "补拍" * 1100},
+                            {"type": "observe"},
+                            "核对药品标签",
+                            {"kind": "consult"},
+                        ],
+                    }
+                )
+            ],
+            message="保存排查方案",
+        )
+        result = next(e["result"] for e in events if e["type"] == "tool_result")
+        self.assertEqual(result["status"], "saved")
+        self.assertEqual(len([e for e in events if e["type"] == "tool_start"]), 1)
+        plan = self.client.get("/api/plans/" + result["plan_id"]).json()
+        self.assertEqual(plan["region"], "郑州")
+        self.assertEqual(plan["growth_stage"], "待确认")
+        self.assertEqual(len(plan["steps"]), 4)
+        self.assertEqual(
+            plan["steps"][0]["operation"], execution_plans.ACTIONS["photograph"][1]
+        )
+
+    def test_plan_repairs_arguments_once_even_at_last_tool_round(self):
+        self.seed()
+        bad = self.plan_call(
+            {"title": "排查方案", "steps": [{"description": "补拍照片"}]}
+        )
+        good = self.plan_call({"title": "排查方案", "steps": ["photograph", "consult"]})
+        with patch.object(config, "MAX_TOOL_ITERATIONS", 1):
+            events = self.chat([bad, good], message="保存排查方案")
+        results = [e["result"] for e in events if e["type"] == "tool_result"]
+        self.assertEqual(
+            [r.get("error") or r["status"] for r in results], ["invalid_plan", "saved"]
+        )
+        self.assertEqual(results[0]["invalid_fields"], ["steps"])
+        self.assertEqual(len(self.client.get("/api/plans").json()), 1)
+        self.assertEqual(events[-1]["type"], "done")
+
+    def test_plan_repair_is_bounded_and_never_claims_saved(self):
+        self.seed()
+        bad = self.plan_call({"title": "排查方案", "steps": ["喷药200克"]})
+        still_bad = self.plan_call(
+            {
+                "title": "排查方案",
+                "steps": [{"action": "photograph", "type": "consult"}],
+            }
+        )
+        events = self.chat([bad, still_bad], message="保存排查方案")
+        self.assertEqual(len([e for e in events if e["type"] == "tool_result"]), 2)
+        self.assertEqual(self.client.get("/api/plans").json(), [])
+        answer = next(e["content"] for e in events if e["type"] == "answer")
+        self.assertIn("尚未保存", answer)
+        self.assertNotIn("已保存", answer)
+
+    def test_plan_model_cannot_claim_saved_instead_of_repairing(self):
+        self.seed()
+        events = self.chat(
+            [
+                self.plan_call({"title": "排查方案", "steps": []}),
+                json.dumps({"action": "answer", "content": "执行方案已保存。"}),
+            ],
+            message="保存排查方案",
+        )
+        self.assertEqual(self.client.get("/api/plans").json(), [])
+        self.assertTrue(any(e["type"] == "answer_reset" for e in events))
+        answer = next(e["content"] for e in events if e["type"] == "answer")
+        self.assertIn("尚未保存", answer)
+        self.assertNotIn("已保存", answer)
+
+    def test_plan_bad_outer_arguments_return_repairable_error(self):
+        from diagnostics import Trace
+
+        for args in ({"plan_json": "x" * 8001}, {"steps": ["observe"]}, None):
+            result = dialogue._tool_result("save_execution_plan", args, set(), Trace())
+            self.assertEqual(result["error"], "invalid_plan")
+            self.assertNotIn("x" * 100, json.dumps(result))
+
+    def test_plan_missing_case_and_storage_failure_are_distinct(self):
+        from diagnostics import Trace
+        import sqlite3
+
+        trace = Trace()
+        trace.owner, trace.case_id, trace.turn_id = self.who, "missing", "turn"
+        args = {"plan_json": {"title": "现场排查", "steps": ["observe"]}}
+        result = dialogue._tool_result("save_execution_plan", args, set(), trace)
+        self.assertEqual(result["status"], "needs_case")
+        self.seed()
+        with patch.object(
+            execution_plans,
+            "save",
+            side_effect=sqlite3.OperationalError("private storage path and key"),
+        ):
+            events = self.chat(
+                [self.plan_call(args["plan_json"])], message="保存排查方案"
+            )
+        result = next(e["result"] for e in events if e["type"] == "tool_result")
+        self.assertEqual(result["error"], "plan_storage_failed")
+        self.assertEqual(len(result["diagnostic_id"]), 12)
+        self.assertNotIn("private storage", json.dumps(events))
+        self.assertEqual(self.client.get("/api/plans").json(), [])
+        self.assertEqual(events[-1]["type"], "done")
+
+    def test_plan_legacy_malformed_sources_do_not_prevent_saving(self):
+        self.seed()
+        result = execution_plans.save(
+            self.who,
+            "case",
+            "plan",
+            json.dumps({"title": "现场排查", "steps": ["observe"]}),
+            [
+                None,
+                {"result": None},
+                {"result": {"results": None}},
+                {
+                    "result": {
+                        "results": [
+                            None,
+                            "legacy",
+                            {"source": "legacy"},
+                            {"url": "https://www.moa.gov.cn/example", "title": "参考"},
+                        ]
+                    }
+                },
+            ],
+        )
+        self.assertEqual(result["status"], "saved")
+        plan = self.client.get("/api/plans/" + result["plan_id"]).json()
+        self.assertEqual(len(plan["references"]), 1)
+
     def test_model_image_payload_and_differential_prompt(self):
         data = gen_params("test", "观察症状", "BASE64")
         self.assertEqual(data["payload"]["message"]["text"][0]["content"], "BASE64")

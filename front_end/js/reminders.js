@@ -21,7 +21,7 @@
       'nav a[href="personal.html?tab=tasks"]',
     );
     if (!link) return;
-    link.setAttribute("aria-label", "提醒");
+    link.setAttribute("aria-label", "提醒任务");
     let b = link.querySelector(".reminder-count");
     if (!b) {
       b = document.createElement("span");

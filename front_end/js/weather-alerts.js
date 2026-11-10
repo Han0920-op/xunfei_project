@@ -54,7 +54,7 @@
     });
     if (!r.ok) throw Error("地区订阅暂不可用");
     subscriptions = (await r.json()).subscriptions;
-    root.innerHTML = `<div class="personal-heading"><div><span class="page-eyebrow">${icon("clock")}留意天气变化，提前做好准备</span><h1>天气预警</h1><p>按订阅地区接收网页内提醒，结合实际苗情安排防护与复查。</p></div><a class="button secondary" href="intelligence.html">${icon("plus")}管理订阅地区</a></div><p id="weatherError" class="error" role="alert"></p><div class="reminder-tabs"><a href="personal.html?tab=tasks">提醒计划</a><a href="personal.html?tab=notifications">检查消息</a><a href="intelligence.html">地区植保订阅</a><span class="selected">天气预警</span></div>
+    root.innerHTML = `${AppShell.alertBreadcrumb("天气预警")}<div class="personal-heading"><div><span class="page-eyebrow">${icon("clock")}留意天气变化，提前做好准备</span><h1>天气预警</h1><p>按订阅地区接收网页内提醒，结合实际苗情安排防护与复查。</p></div><a class="button secondary" href="intelligence.html">${icon("plus")}管理订阅地区</a></div><p id="weatherError" class="error" role="alert"></p>
   <section class="weather-demo-panel"><div class="weather-demo-heading"><span class="weather-level orange">现场展示</span><h2>演示一次天气预警</h2><p>无需等待真实极端天气。以下均为明确标注的演示情景，不表示当地正在发生灾害。</p></div><div class="weather-demo-controls"><label>演示地区<select id="demoRegion" aria-label="演示地区"><option value="">示例地区（不指定实际地点）</option>${subscriptions.map((s) => `<option value="${esc(s.id)}">${esc(s.province)} ${esc(s.city)}</option>`).join("")}</select></label><label>演示阶段<select id="demoAction" aria-label="演示阶段"><option>发布</option><option>升级</option><option>解除</option></select></label></div><div class="weather-scenarios">${[
     ["暴雨", "橙色", "暴雨橙色"],
     ["大风", "黄色", "大风黄色"],

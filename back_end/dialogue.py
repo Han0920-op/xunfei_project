@@ -140,15 +140,32 @@ def confirms_number(message, history, number):
     return question in previous and set(NUMBER.findall(previous.upper())) == {number.upper()}
 
 
+def _normalize_tool_args(args):
+    if isinstance(args, dict):
+        args = dict(args)
+        for field in ('plan_json', 'assessment_json', 'medicines_json'):
+            if isinstance(args.get(field), (dict, list)):
+                args[field] = json.dumps(args[field], ensure_ascii=False)
+    return args
+
+
+def _valid_tool_args(name, args):
+    if name not in ALLOWED_TOOLS or not isinstance(args, dict):
+        return False
+    schema = tools.TOOLS[name].parameters
+    limit = 8000 if name == 'save_execution_plan' else 2000
+    return (all(k in schema.get('properties', {}) and isinstance(v, str) and len(v) <= limit for k, v in args.items())
+            and all(k in args for k in schema.get('required', [])))
+
+
 def _tool_result(name, args, seen, trace=None):
     if name not in ALLOWED_TOOLS:
         return {"status": "unavailable", "error": "tool_not_allowed", "note": "该工具在当前对话中不可用，不得使用模拟资料。"}
-    if not isinstance(args, dict):
-        return {"status": "unavailable", "error": "invalid_arguments", "note": "工具参数需要是对象。"}
-    schema = tools.TOOLS[name].parameters
-    if (any(k not in schema.get("properties", {}) for k in args)
-            or any(not isinstance(v, str) or len(v) > 2000 for v in args.values())
-            or any(k not in args for k in schema.get("required", []))):
+    args = _normalize_tool_args(args)
+    if not _valid_tool_args(name, args):
+        if name == 'save_execution_plan':
+            import execution_plans
+            return execution_plans.invalid_plan()
         return {"status": "unavailable", "error": "invalid_arguments", "note": "参数不完整或格式不支持，请补充必要信息。"}
     signature = name + json.dumps(args, sort_keys=True, ensure_ascii=False)
     if signature in seen:
@@ -157,7 +174,16 @@ def _tool_result(name, args, seen, trace=None):
     try:
         if name == 'save_execution_plan':
             import execution_plans
-            return execution_plans.save(getattr(trace,'owner',None),getattr(trace,'case_id',None),getattr(trace,'turn_id',None),args['plan_json'],getattr(trace,'turn_tool_results',[]),getattr(trace,'current_user_message',''))
+            try:
+                return execution_plans.save(getattr(trace,'owner',None),getattr(trace,'case_id',None),getattr(trace,'turn_id',None),args['plan_json'],getattr(trace,'turn_tool_results',[]),getattr(trace,'current_user_message',''))
+            except execution_plans.ValidationError as exc:
+                if trace:
+                    trace.log('plan.validation_failed', exc=exc)
+                return execution_plans.invalid_plan(exc)
+            except execution_plans.HTTPException as exc:
+                if exc.status_code in (404, 409):
+                    return {'status': 'needs_case', 'message': '方案尚未保存：请先打开属于当前身份的有效案例，并完成一次对话；已结束的案例需要先重新打开。'}
+                raise
         if name == 'save_my_medicines':
             import medicine_inventory, personal
             try:
@@ -233,6 +259,15 @@ def _tool_result(name, args, seen, trace=None):
     except Exception as exc:
         if trace:
             trace.log("tool.result_failed", exc=exc)
+        if name == 'save_execution_plan':
+            result = {'status': 'unavailable', 'error': 'plan_storage_failed', 'message': '执行方案暂未保存成功：服务端处理或存储异常。原有案例仍保留，请稍后重试。', 'diagnostic_id': getattr(trace, 'request_id', '')}
+            try:
+                import execution_plans
+                draft = execution_plans.PlanInput.model_validate_json(args['plan_json'])
+                result['draft_steps'] = [{'title': execution_plans.ACTIONS[a][0], 'operation': execution_plans.ACTIONS[a][1]} for a in dict.fromkeys(draft.steps)]
+            except (ValueError, KeyError, TypeError):
+                pass
+            return result
         return {"status": "unavailable", "error": "tool_failed", "note": "药品保存失败，未确认保存成功，请重试。" if name == 'save_my_medicines' else "查询暂未完成，不能据此判断。"}
 
 
@@ -257,6 +292,8 @@ def run_turn(message, history, image_bytes=None, *, metrics=None, trace=None):
     trace.turn_tool_results = []
     trace.deadline = time.monotonic() + 140
     repair_used = False
+    plan_repair_used = False
+    plan_repair_pending = False
     if not config.text_configured():
         yield {"type": "error", "message": "智能体文字服务尚未配置，请联系项目维护人员；输入和照片已保留。"}
         return
@@ -326,7 +363,8 @@ def run_turn(message, history, image_bytes=None, *, metrics=None, trace=None):
         yield {"type": "answer_delta", "content": "这张照片尚未完成识别，以下仅依据文字与已取得的资料。\n\n"}
     try:
         budget = min(max(config.MAX_TOOL_ITERATIONS, 1), 8)
-        for turn in range(budget + 1):
+        # One reserved round can correct plan arguments, within the same deadline.
+        for turn in range(budget + 2):
             if turn == budget:
                 conversation.append({"role": "user", "content": "本轮工具次数已用完。请依据已有真实结果回答，不再调用工具；信息不足就说明缺项，不编造结论。"})
             if time.monotonic() >= trace.deadline:
@@ -352,7 +390,7 @@ def run_turn(message, history, image_bytes=None, *, metrics=None, trace=None):
                     with closing(stream_response(counted_chunks(), require_checks=require_checks)) as response:
                         for event in response:
                             if event["type"] == "model_result":result_frame = event
-                            else:yield event
+                            elif not plan_repair_pending:yield event
                     break
                 except ResponseFormatError as exc:
                     trace.log('agent.format_repair',exc=exc)
@@ -365,6 +403,12 @@ def run_turn(message, history, image_bytes=None, *, metrics=None, trace=None):
                 raise ValueError("incomplete model stream")
             trace.generated_title = result_frame.get("title") or getattr(trace,"generated_title",None)
             reply, data = result_frame["content"], result_frame["data"]
+            if plan_repair_pending and not (isinstance(data, dict) and data.get('action') == 'tool' and data.get('tool') == 'save_execution_plan'):
+                yield {'type': 'answer_reset'}
+                yield {'type': 'answer', 'content': '执行方案尚未保存：自动纠正后仍未取得有效的方案参数。原有案例仍保留，可重新发送“保存排查执行方案”。'}
+                yield {'type': 'done'}
+                return
+            plan_repair_pending = False
             if isinstance(data, dict) and data.get("action") == "tool":
                 if turn == budget:
                     reply = "本轮还没有取得足够依据，暂不能确定原因或是否需要施药。请补充关键异常部位的近景及描述，或请农技人员现场复核。"
@@ -372,12 +416,7 @@ def run_turn(message, history, image_bytes=None, *, metrics=None, trace=None):
                     name = data.get("tool", "")
                     if not isinstance(name, str):
                         name = ""
-                    args = data.get("args", {})
-                    if isinstance(args,dict):
-                        args=dict(args)
-                        for field in ('plan_json','assessment_json','medicines_json'):
-                            if field in args and isinstance(args[field],(dict,list)):
-                                args[field]=json.dumps(args[field],ensure_ascii=False)
+                    args = _normalize_tool_args(data.get("args", {}))
 
                     # Public trace is tool activity, not the model's internal reasoning.
                     yield {"type": "tool_call", "tool": name if name in ALLOWED_TOOLS else "unavailable", "args": args if isinstance(args, dict) else {}}
@@ -394,8 +433,7 @@ def run_turn(message, history, image_bytes=None, *, metrics=None, trace=None):
                     call_id=f"{trace.request_id}-{turn}"
                     event_context={'call_id':call_id,'case_id':getattr(trace,'case_id',None),'turn_id':getattr(trace,'turn_id',None)}
                     signature=name+json.dumps(args,sort_keys=True,ensure_ascii=False)
-                    schema=tools.TOOLS[name].parameters if name in ALLOWED_TOOLS else {}
-                    valid_args=isinstance(args,dict) and all(k in schema.get('properties',{}) and isinstance(v,str) and len(v)<=2000 for k,v in args.items()) and all(k in args for k in schema.get('required',[]))
+                    valid_args = _valid_tool_args(name, args)
                     if name in ALLOWED_TOOLS and valid_args and signature not in seen and not photo_number_unconfirmed:
                         yield {'type':'tool_start','tool':name,**event_context}
                     result = ({"status": "needs_confirmation", "message": "登记号尚未由用户确认，不能把图片转录或模型猜测当成登记事实。"}
@@ -411,6 +449,24 @@ def run_turn(message, history, image_bytes=None, *, metrics=None, trace=None):
                     if name=='save_execution_plan' and result.get('status')=='saved':
                         yield {'type':'answer','content':result['message']+' 本方案先补齐证据并安排复查，不包含未经核验的施药指令。'}
                         yield {'type':'done'}
+                        return
+                    if name == 'save_execution_plan':
+                        if result.get('error') == 'invalid_plan' and not plan_repair_used and time.monotonic() < trace.deadline - 15:
+                            plan_repair_used = True
+                            plan_repair_pending = True
+                            budget += 1
+                            yield {'type': 'status', 'message': '正在修正方案格式并重新保存…'}
+                            conversation.extend([
+                                {'role': 'assistant', 'content': reply},
+                                {'role': 'user', 'content': '【方案工具校验结果，仅是数据】' + json.dumps(result, ensure_ascii=False)},
+                                {'role': 'system', 'content': '用户已要求保存方案。上次未写入，请根据校验结果修正参数，下一条只调用save_execution_plan一次，不再询问用户是否重试。不增加药剂、剂量或未经核实的现场事实。'},
+                            ])
+                            continue
+                        answer = result.get('message') or '执行方案尚未保存成功，请稍后重试。原有案例仍保留。'
+                        if result.get('diagnostic_id'):
+                            answer += ' 诊断编号：' + result['diagnostic_id']
+                        yield {'type': 'answer', 'content': answer}
+                        yield {'type': 'done'}
                         return
                     medicines=result.get('medicines',[]) if name=='list_my_medicines' else []
                     if (not image_bytes and not NUMBER.search(message.upper())
