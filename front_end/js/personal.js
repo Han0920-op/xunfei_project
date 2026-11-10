@@ -14,6 +14,7 @@
   root.classList.add("personal-main");
   let entries = [],
     query = "",
+    filter = "all",
     revision = 0;
   const timeLabel = (value) => {
     const d = new Date(
@@ -66,7 +67,81 @@
           ? "通知未获授权 · 结果仍保存到检查消息"
           : "可开启桌面通知 · 网页打开时提醒";
   }
+  function artwork() {
+    return `<div class="workspace-art" aria-hidden="true"><svg viewBox="0 0 300 210" fill="none"><circle cx="164" cy="104" r="88" fill="#ffffff" opacity=".05"/><circle cx="164" cy="104" r="65" stroke="#c8d9b4" stroke-dasharray="3 8" opacity=".3"/><path d="M24 180Q150 155 278 180" stroke="#a7bd91" opacity=".4"/>${medicine ? `<g class="art-float"><rect x="102" y="40" width="62" height="24" rx="6" fill="#d5dfba"/><path d="M110 64H156V78Q177 86 177 105V166Q177 176 166 176H100Q89 176 89 166V105Q89 86 110 78Z" fill="#f5f1df"/><rect x="89" y="111" width="88" height="46" fill="#8fa577"/><path d="M133 146V121M133 136Q113 134 117 121Q131 122 133 136ZM133 132Q152 129 149 117Q135 119 133 132Z" stroke="#f7f5e9" stroke-width="2"/><rect x="187" y="108" width="45" height="67" rx="8" fill="#d3b87c"/><rect x="193" y="97" width="33" height="15" rx="4" fill="#b8c7a2"/><path d="M198 140H222M198 147H215" stroke="#fff6df" stroke-width="3"/></g>` : `<g class="art-float"><rect x="76" y="51" width="154" height="126" rx="14" fill="#f4f0df"/><path d="M76 66Q76 51 90 51H216Q230 51 230 66V86H76Z" fill="#b5c596"/><path d="M111 43V62M195 43V62" stroke="#ecdfb8" stroke-width="8" stroke-linecap="round"/><path d="M99 106H117M134 106H152M169 106H187M99 129H117M134 129H152M99 152H117" stroke="#bcc6a6" stroke-width="6" stroke-linecap="round"/><circle cx="209" cy="153" r="34" fill="#d7bd80" stroke="#254f3d" stroke-width="5"/><path d="M209 134V153L222 160" stroke="#254f3d" stroke-width="3" stroke-linecap="round"/></g>`}<path class="art-sprig" d="M46 177Q60 136 46 100M51 140Q29 137 28 121Q48 122 51 140ZM52 125Q72 119 69 103Q53 106 52 125Z" stroke="#adc199" stroke-width="2"/></svg></div>`;
+  }
+  function overview() {
+    const metrics = medicine
+      ? [
+          [entries.length, "已保存资料"],
+          [entries.filter((x) => x.number).length, "已填写登记号"],
+          [entries.filter((x) => !x.number).length, "待补登记号"],
+        ]
+      : tab === "tasks"
+        ? [
+            [
+              entries.filter((x) => x.enabled && !x._completed_at).length,
+              "启用中",
+            ],
+            [entries.filter((x) => x._completed_at).length, "已提醒"],
+            [
+              entries.filter((x) => !x.enabled && !x._completed_at).length,
+              "已暂停",
+            ],
+          ]
+        : [
+            [entries.length, "全部消息"],
+            [entries.filter((x) => !x.read).length, "未读消息"],
+            [entries.filter((x) => x.read).length, "已读消息"],
+          ];
+    return metrics
+      .map(
+        ([value, label], i) =>
+          `<div class="workspace-metric"><span class="metric-mark">${icon(i === 0 ? (medicine ? "book" : "clock") : i === 1 ? "check" : "more")}</span><div><strong>${value}</strong><span>${label}</span></div></div>`,
+      )
+      .join("");
+  }
+  function filters() {
+    const options = medicine
+      ? [
+          ["all", "全部农药"],
+          ["missing", "待补登记号"],
+          ["noted", "有备注"],
+        ]
+      : tab === "tasks"
+        ? [
+            ["all", "全部计划"],
+            ["active", "启用中"],
+            ["completed", "已提醒"],
+            ["paused", "已暂停"],
+          ]
+        : [
+            ["all", "全部消息"],
+            ["unread", "未读"],
+            ["read", "已读"],
+          ];
+    return options
+      .map(
+        ([key, label]) =>
+          `<button type="button" data-filter="${key}" aria-pressed="${filter === key}">${label}</button>`,
+      )
+      .join("");
+  }
+  function matchesFilter(x) {
+    return (
+      filter === "all" ||
+      (filter === "missing" && !x.number) ||
+      (filter === "noted" && Boolean(x.notes)) ||
+      (filter === "active" && x.enabled && !x._completed_at) ||
+      (filter === "completed" && Boolean(x._completed_at)) ||
+      (filter === "paused" && !x.enabled && !x._completed_at) ||
+      (filter === "unread" && !x.read) ||
+      (filter === "read" && x.read)
+    );
+  }
   function empty() {
+    if (filter !== "all" && !query)
+      return `<div class="personal-empty"><div class="empty-illustration">${icon("check")}</div><h2>这个分类暂时没有内容</h2><p>可以切换到全部，查看已保存的${medicine ? "农药资料" : tab === "tasks" ? "提醒计划" : "检查消息"}。</p><button class="button secondary" data-filter="all">查看全部</button></div>`;
     const search = Boolean(query);
     return `<div class="personal-empty"><div class="empty-illustration">${icon(search ? "search" : medicine ? "book" : tab === "tasks" ? "clock" : "leaf")}</div><h2>${search ? "没有找到这瓶药" : medicine ? "把手里的药，放心记在这里" : tab === "tasks" ? "给麦苗的变化，留一个提醒" : "检查消息，会在这里等你"}</h2><p>${search ? "试试药品名称或登记证号。" : medicine ? "先添加一瓶农药。下次问智麦时，\n就能结合你手里的药继续核对。" : tab === "tasks" ? "约好每天的时间，查查天气，\n也记得回头看看麦苗的变化。" : "任务执行后，天气和检查提示会保存在这里。\n没查到天气，也会如实告诉你。"}</p>${!search && tab !== "notifications" ? `<button class="button primary" data-new>${icon("plus")}${medicine ? "添加第一瓶农药" : "设置第一个提醒"}</button>` : ""}</div>`;
   }
@@ -79,24 +154,30 @@
   }
   function card(x) {
     if (tab === "notifications")
-      return `<article class="personal-card message-card"><div class="card-top"><span class="card-symbol">${icon("leaf")}</span><span class="personal-badge ${x.weather?.status === "ok" ? "" : "muted-badge"}">${x.task_type === "weather_alert" ? weatherLabel(x) : x.task_type === "regional" ? "区域巡查提示" : x.task_type === "followup" ? "案例复查到时" : x.task_type === "reminder" ? "提醒已到时间" : x.weather?.status === "ok" ? "天气已更新" : "天气暂不可用"}</span></div><h2>${esc(x.name)}</h2><p class="message-text">${esc(x.message)}</p>${x.task_type === "weather_alert" ? `<p class="personal-note">${esc(x.warning?.publisher || "")} · 发布 ${esc(timeLabel(x.warning?.issued_at))} · 有效至 ${esc(timeLabel(x.warning?.expires_at))}</p><ul>${(x.advice || []).map((t) => `<li>${esc(t)}</li>`).join("")}</ul><a class="text-button" href="weather-alerts.html">查看天气防护建议</a>` : ""}${x.source ? `<p class="personal-note">来源：${esc(x.source.title)} · ${esc(x.source.published_on)} · 适用：${esc((x.source.regions || []).join("、"))}</p>` : ""}<small class="card-meta">${esc(timeLabel(x.created_at))} · 北京时间</small><div class="card-actions"><a href="${x.case_id ? "memory.html?case=" + encodeURIComponent(x.case_id) : "index.html"}" class="text-button">回到智麦继续复查 ${icon("arrow")}</a>${!x.read ? `<button class="text-button" data-read="${esc(x.id)}">标为已读</button>` : `<small>已读</small>`}<button class="text-button subtle-danger" data-remove="${esc(x.id)}">删除消息</button></div></article>`;
-    return `<article class="personal-card"><div class="card-top"><span class="card-symbol">${icon(medicine ? "book" : "clock")}</span><span class="personal-badge ${medicine ? "amber-badge" : x.enabled ? "" : "muted-badge"}">${medicine ? "已保存 · 登记待核对" : x._completed_at ? "已提醒" : x.enabled ? "已启用" : "已暂停"}</span></div>${medicine ? `<h2>${esc(x.name)}</h2><p class="registration-number">${esc(x.number || "登记证号待补充")}</p>` : `<div class="task-clock">${esc(x.recurrence === "once" ? timeLabel(x.run_at) : x.time)}<small>${x.recurrence === "once" ? "仅一次" : "每天"} · 北京时间</small></div><h2>${esc(x.name)}</h2><p class="task-location">${esc(x.task_type === "followup" ? "案例复查" : x.task_type === "reminder" ? "普通提醒" : x.location)} · ${x.recurrence === "once" ? "仅一次" : "每天 " + esc(x.time)} · ${x._completed_at ? "已提醒" : x.enabled ? "已启用" : "已暂停"}</p>`}<p class="personal-note">${esc(x.notes || (medicine ? "可以在编辑中补充成分、保质期或使用备注。" : "到时查天气，提醒你观察麦苗变化。"))}</p>${!medicine && x.enabled ? `<small class="card-meta">下次检查：${esc(timeLabel(x.next))}</small>` : ""}<div class="card-actions">${x.case_id ? `<a href="memory.html?case=${encodeURIComponent(x.case_id)}">查看关联案例</a>` : ""}${medicine ? `<a class="text-button card-chat" href="index.html?medicine=${encodeURIComponent(x.id)}">带着这瓶药问智麦 ${icon("arrow")}</a>` : ""}<div><button class="text-button" data-edit="${esc(x.id)}">编辑</button><button class="text-button subtle-danger" data-remove="${esc(x.id)}">删除</button></div></div></article>`;
+      return `<article class="personal-card message-card ${x.read ? "is-read" : "is-unread"}"><div class="card-top"><span class="card-symbol">${icon("leaf")}</span><span class="personal-badge ${x.weather?.status === "ok" ? "" : "muted-badge"}">${x.task_type === "weather_alert" ? weatherLabel(x) : x.task_type === "regional" ? "区域巡查提示" : x.task_type === "followup" ? "案例复查到时" : x.task_type === "reminder" ? "提醒已到时间" : x.weather?.status === "ok" ? "天气已更新" : "天气暂不可用"}</span></div><h2>${esc(x.name)}</h2><p class="message-text">${esc(x.message)}</p>${x.task_type === "weather_alert" ? `<p class="personal-note">${esc(x.warning?.publisher || "")} · 发布 ${esc(timeLabel(x.warning?.issued_at))} · 有效至 ${esc(timeLabel(x.warning?.expires_at))}</p><ul>${(x.advice || []).map((t) => `<li>${esc(t)}</li>`).join("")}</ul><a class="text-button" href="weather-alerts.html">查看天气防护建议</a>` : ""}${x.source ? `<p class="personal-note">来源：${esc(x.source.title)} · ${esc(x.source.published_on)} · 适用：${esc((x.source.regions || []).join("、"))}</p>` : ""}<small class="card-meta">${esc(timeLabel(x.created_at))} · 北京时间</small><div class="card-actions"><a href="${x.case_id ? "memory.html?case=" + encodeURIComponent(x.case_id) : "index.html"}" class="text-button">回到智麦继续复查 ${icon("arrow")}</a>${!x.read ? `<button class="text-button" data-read="${esc(x.id)}">标为已读</button>` : `<small>已读</small>`}<button class="text-button subtle-danger" data-remove="${esc(x.id)}">删除消息</button></div></article>`;
+    return `<article class="personal-card ${medicine ? "medicine-card" : "schedule-card"} ${!medicine && !x.enabled ? "is-paused" : ""}"><div class="card-top"><span class="card-symbol">${icon(medicine ? "book" : "clock")}</span><span class="personal-badge ${medicine ? "amber-badge" : x.enabled ? "" : "muted-badge"}">${medicine ? "已保存 · 登记待核对" : x._completed_at ? "已提醒" : x.enabled ? "已启用" : "已暂停"}</span></div>${medicine ? `<h2>${esc(x.name)}</h2><p class="registration-number"><span>登记证号</span>${esc(x.number || "待补充")}</p>` : `<div class="task-clock">${esc(x.recurrence === "once" ? timeLabel(x.run_at) : x.time)}<small>${x.recurrence === "once" ? "仅一次" : "每天"} · 北京时间</small></div><h2>${esc(x.name)}</h2><p class="task-location">${esc(x.task_type === "followup" ? "案例复查" : x.task_type === "reminder" ? "普通提醒" : x.location)} · ${x.recurrence === "once" ? "仅一次" : "每天 " + esc(x.time)} · ${x._completed_at ? "已提醒" : x.enabled ? "已启用" : "已暂停"}</p>`}<p class="personal-note">${esc(x.notes || (medicine ? "可以在编辑中补充成分、保质期或使用备注。" : x.task_type === "weather" ? "到时查询天气，留意田间变化。" : "按约定时间提醒你，接着观察田间变化。"))}</p>${!medicine && x.enabled ? `<small class="card-meta">下次检查：${esc(timeLabel(x.next))}</small>` : ""}<div class="card-actions">${x.case_id ? `<a href="memory.html?case=${encodeURIComponent(x.case_id)}">查看关联案例</a>` : ""}${medicine ? `<a class="text-button card-chat" href="index.html?medicine=${encodeURIComponent(x.id)}">带着这瓶药问智麦 ${icon("arrow")}</a>` : ""}<div><button class="text-button" data-edit="${esc(x.id)}">编辑</button><button class="text-button subtle-danger" data-remove="${esc(x.id)}">删除</button></div></div></article>`;
   }
   function list() {
     const data = entries.filter(
       (x) =>
-        !query ||
-        [x.name, x.number, x.notes].some((v) =>
-          String(v || "")
-            .toLowerCase()
-            .includes(query.toLowerCase()),
-        ),
+        matchesFilter(x) &&
+        (!query ||
+          [x.name, x.number, x.notes].some((v) =>
+            String(v || "")
+              .toLowerCase()
+              .includes(query.toLowerCase()),
+          )),
     );
     document.getElementById("personalList").innerHTML = data.length
       ? `<div class="personal-grid">${data.map(card).join("")}</div>`
       : empty();
     const count = document.getElementById("listCount");
-    if (count) count.textContent = `${data.length} 瓶`;
+    if (count)
+      count.textContent = `${data.length} ${medicine ? "条资料" : "条"}`;
+    const metrics = document.getElementById("workspaceMetrics");
+    if (metrics) metrics.innerHTML = overview();
+    const choices = document.getElementById("workspaceFilters");
+    if (choices) choices.innerHTML = filters();
   }
   async function render() {
     const version = ++revision;
@@ -104,7 +185,18 @@
     if (version !== revision) return;
     entries = items;
     document.title = (medicine ? "我的农药库" : "提醒任务") + " · 智麦";
-    root.innerHTML = `${medicine ? "" : AppShell.alertBreadcrumb("提醒任务")}<div class="personal-heading"><div><span class="page-eyebrow">${icon(medicine ? "book" : "clock")}${medicine ? "手里的药，心里有数" : "约好时间，接着关心麦田"}</span><h1>${medicine ? "我的农药库" : "提醒任务"}</h1><p>${medicine ? "记下已有的农药，核对时少找一次包装。" : "普通提醒、复查事项和天气检查，约好时间自动提示。"}</p></div><button class="button primary" data-new>${icon("plus")}${medicine ? "新增农药" : "新增提醒"}</button></div><p class="error" id="personalError" role="alert"></p>${medicine ? `<div class="personal-banner">${icon("leaf")}<p>保存你确认的药品资料，智麦可以在对话中按需读取。<small>“登记待核对”表示当前登记有效状态和用途尚未核实，不影响资料已经保存。使用前仍需结合登记范围和实际问题核对。</small></p><a href="index.html">问智麦 ${icon("arrow")}</a></div><div class="personal-toolbar"><h2>我保存的农药 <span id="listCount"></span></h2><label class="personal-search">${icon("search")}<input id="medicineSearch" type="search" placeholder="搜索名称或登记证号" aria-label="搜索农药" value="${esc(query)}"></label></div>` : `<div class="reminder-tabs" role="group" aria-label="提醒内容"><button class="${tab === "tasks" ? "selected" : ""}" data-tab="tasks">提醒计划</button><button class="${tab === "notifications" ? "selected" : ""}" data-tab="notifications">检查消息</button></div><div class="notification-strip">${icon("clock")}<div><strong>${esc(notificationStatus())}</strong><small>智麦任意页面到点会弹出站内提醒；后端需保持运行。</small></div><button class="button secondary" id="notify">开启桌面通知</button><button class="button secondary" id="testReminder">测试提醒</button></div>`}<section id="personalList" aria-label="${medicine ? "农药列表" : tab === "tasks" ? "天气检查计划" : "检查消息"}"></section><details class="personal-footnote"><summary>资料保存与提醒说明</summary><p>药品和任务保存在服务端，通过当前浏览器的个人凭据访问，更换浏览器不会自动同步。天气任务需要电脑开机且后端运行；重启后补查一次错过的检查。桌面通知需要授权并保持本页打开，尚不支持关闭网页后的推送。</p></details>`;
+    root.innerHTML = `${medicine ? "" : AppShell.alertBreadcrumb("提醒任务")}
+      <header class="workspace-hero"><div class="workspace-hero-copy"><span class="page-eyebrow">${icon(medicine ? "book" : "clock")}${medicine ? "手里的药，心里有数" : "把牵挂，交给时间"}</span><h1>${medicine ? "我的农药库" : "提醒任务"}</h1><p>${medicine ? "收好每一份药品资料，\n让下一次核对更从容。" : "田间的每一次变化，\n都值得按时回头看看。"}</p><button class="button primary" data-new>${icon("plus")}${medicine ? "新增农药" : "新增提醒"}</button></div>${artwork()}</header>
+      <div class="workspace-metrics" id="workspaceMetrics" aria-label="${medicine ? "农药资料概览" : "提醒概览"}"></div>
+      <p class="error" id="personalError" role="alert"></p>
+      <div class="workspace-columns"><div class="workspace-content">
+      ${medicine ? "" : `<div class="reminder-tabs" role="group" aria-label="提醒内容"><button class="${tab === "tasks" ? "selected" : ""}" aria-pressed="${tab === "tasks"}" data-tab="tasks">${icon("clock")}提醒计划</button><button class="${tab === "notifications" ? "selected" : ""}" aria-pressed="${tab === "notifications"}" data-tab="notifications">${icon("history")}检查消息</button></div>`}
+      <div class="personal-toolbar"><h2>${medicine ? "我保存的农药" : tab === "tasks" ? "我的提醒计划" : "收到的检查消息"} <span id="listCount"></span></h2>${medicine ? `<label class="personal-search">${icon("search")}<input id="medicineSearch" type="search" placeholder="搜索名称或登记证号" aria-label="搜索农药" value="${esc(query)}"></label>` : ""}</div>
+      <div class="workspace-filters" id="workspaceFilters" role="group" aria-label="筛选${medicine ? "农药" : "提醒"}"></div>
+      <section id="personalList" aria-label="${medicine ? "农药列表" : tab === "tasks" ? "天气检查计划" : "检查消息"}"></section>
+      </div><aside class="workspace-aside" aria-label="${medicine ? "农药资料使用提示" : "提醒设置与快捷入口"}">
+      ${medicine ? `<div class="workspace-guide"><span class="guide-icon">${icon("leaf")}</span><h2>从保存，到安心核对</h2><ol><li><strong>照着包装记下来</strong><p>名称、登记号和备注，随时补充。</p></li><li><strong>带着资料问智麦</strong><p>对话中按需读取，少找一次包装。</p></li><li><strong>用前再核对</strong><p>确认登记范围，结合田间问题判断。</p></li></ol><a class="button secondary" href="index.html">问智麦 ${icon("arrow")}</a></div><div class="workspace-tip"><strong>已保存，不等于已核实</strong><p>“登记待核对”不影响入库，表示当前登记有效状态和用途尚未核实。</p></div>` : `<div class="notification-strip"><span class="guide-icon">${icon("clock")}</span><h2>让提醒准时抵达</h2><div><strong>${esc(notificationStatus())}</strong><small>智麦任意页面到点会弹出站内提醒；电脑与后端需保持运行。</small></div><button class="button secondary" id="notify">开启桌面通知</button><button class="text-button" id="testReminder">测试提醒 ${icon("arrow")}</button></div><div class="workspace-guide workspace-shortcuts"><h2>也关心田外的变化</h2><a href="weather-alerts.html">${icon("leaf")}天气预警 ${icon("arrow")}</a><a href="intelligence.html?view=bulletins">${icon("book")}植保资讯 ${icon("arrow")}</a><a href="intelligence.html">${icon("plus")}管理地区订阅 ${icon("arrow")}</a></div>`}
+      </aside></div><details class="personal-footnote"><summary>资料保存与提醒说明</summary><p>药品和任务保存在服务端，通过当前浏览器的个人凭据访问，更换浏览器不会自动同步。天气任务需要电脑开机且后端运行；重启后补查一次错过的检查。桌面通知需要授权并保持网页打开，尚不支持关闭网页后的推送。</p></details>`;
     list();
     if (!medicine) {
       const strip = document.querySelector(".notification-strip");
@@ -240,7 +332,15 @@
     if (!b) return;
     try {
       if (b.hasAttribute("data-new")) await edit();
+      if (b.dataset.filter) {
+        filter = b.dataset.filter;
+        list();
+        document
+          .querySelector(`#workspaceFilters [data-filter="${filter}"]`)
+          ?.focus();
+      }
       if (b.dataset.tab) {
+        filter = "all";
         tab = b.dataset.tab;
         query = "";
         window.ChatNavigation.replace("personal.html?tab=" + tab);
